@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend-react/dist/
+backups/
+*.log
+.env
+data/linkbuilder.db
+data/docx/
+data/images/
+data/screenshots/
+data/*.db
+*.db
+*.sqlite3
+*.tsbuildinfo

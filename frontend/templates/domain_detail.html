@@ -1,0 +1,822 @@
+{% extends "base.html" %}
+
+{% block title %}Domain Detail - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="/domains" class="text-gray-400 hover:text-white">← Domains</a>
+        <h1 class="text-2xl font-bold" id="domain-title">Loading...</h1>
+        <a id="domain-link" href="#" target="_blank" class="text-pink-400 hover:text-pink-300 text-sm">↗ Visit</a>
+        <span id="domain-status" class="px-2 py-1 rounded text-xs font-medium bg-gray-700"></span>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Info + Contact -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Metrics Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div class="text-xs text-gray-400">Domain Rating</div>
+                    <div class="text-2xl font-bold text-white" id="metric-dr">-</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div class="text-xs text-gray-400">Organic Traffic</div>
+                    <div class="text-2xl font-bold text-white" id="metric-traffic">-</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div class="text-xs text-gray-400">Referring Domains</div>
+                    <div class="text-2xl font-bold text-white" id="metric-refdomains">-</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div class="text-xs text-gray-400">Backlinks</div>
+                    <div class="text-2xl font-bold text-white" id="metric-backlinks">-</div>
+                </div>
+            </div>
+
+            <!-- Contact Info -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Contact Info</h2>
+                    <button onclick="toggleEditContact()" id="edit-contact-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+                        ✏️ Edit
+                    </button>
+                </div>
+                
+                <!-- View Mode -->
+                <div id="contact-view" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Owner</div>
+                        <div class="text-sm" id="view-owner">-</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Email</div>
+                        <div class="text-sm" id="view-email">-</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Telegram</div>
+                        <div class="text-sm" id="view-telegram">-</div>
+                    </div>
+                </div>
+                
+                <!-- Edit Mode -->
+                <div id="contact-edit" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Owner</label>
+                            <input type="text" id="edit-owner" placeholder="Site owner name"
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Email</label>
+                            <input type="email" id="edit-email" placeholder="owner@domain.com"
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Telegram</label>
+                            <input type="text" id="edit-telegram" placeholder="@username"
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveContact()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                            Save
+                        </button>
+                        <button onclick="toggleEditContact()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Link Prices -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Link Prices</h2>
+                    <div class="flex gap-2">
+                        <button onclick="showTypesManager()" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+                            ⚙️ Types
+                        </button>
+                        <button onclick="showAddPriceForm()" class="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm font-medium">
+                            + Add Price
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Add Price Form (hidden by default) -->
+                <div id="add-price-form" class="hidden mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Link Type</label>
+                            <div class="flex gap-1">
+                                <select id="price-type-select" onchange="handleTypeSelect()" 
+                                        class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                                    <option value="">Select type...</option>
+                                </select>
+                            </div>
+                            <input type="text" id="price-type-custom" placeholder="Custom type name"
+                                   class="hidden w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Price</label>
+                            <div class="flex gap-1">
+                                <input type="number" id="price-amount" placeholder="0.00" step="0.01" min="0"
+                                       class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500">
+                                <select id="price-currency" class="w-20 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Duration</label>
+                            <select id="price-duration" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                                <option value="3">3 months</option>
+                                <option value="6">6 months</option>
+                                <option value="12" selected>12 months</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">&nbsp;</label>
+                            <label class="flex items-center gap-2 px-3 py-2">
+                                <input type="checkbox" id="price-permanent" onchange="togglePermanent()">
+                                <span class="text-sm">Permanent</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-400 mb-1">Notes</label>
+                        <input type="text" id="price-notes" placeholder="Optional notes..."
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="savePrice()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                            Save
+                        </button>
+                        <button onclick="hideAddPriceForm()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Prices Table -->
+                <div id="prices-list">
+                    <p class="text-gray-500 text-sm">No prices added yet</p>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Notes</h2>
+                    <button onclick="toggleEditNotes()" id="edit-notes-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+                        ✏️ Edit
+                    </button>
+                </div>
+                <div id="notes-view" class="text-sm text-gray-300 whitespace-pre-wrap">-</div>
+                <div id="notes-edit" class="hidden">
+                    <textarea id="edit-notes" rows="4" 
+                              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm mb-2"></textarea>
+                    <div class="flex gap-2">
+                        <button onclick="saveNotes()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
+                        <button onclick="toggleEditNotes()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Classification + Backlinks -->
+        <div class="space-y-6">
+            <!-- Classification -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-lg font-semibold mb-4">Classification</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Status</label>
+                        <select id="field-status" onchange="saveField('status', this.value)"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="new">New</option>
+                            <option value="analyzing">Analyzing</option>
+                            <option value="analyzed">Analyzed</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="replied">Replied</option>
+                            <option value="negotiating">Negotiating</option>
+                            <option value="deal_closed">Deal Closed</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="blacklisted">Blacklisted</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Category</label>
+                        <select id="field-category" onchange="handleCategoryChange()"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Tags</label>
+                        <input type="text" id="field-tags" placeholder="tag1, tag2, ..."
+                               onblur="saveField('tags', this.value)"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500">
+                    </div>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="field-competitor" onchange="saveField('is_competitor', this.checked)">
+                            <span class="text-sm">Competitor</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="field-adult" onchange="saveField('is_adult', this.checked)">
+                            <span class="text-sm">Adult</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backlinks -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-lg font-semibold mb-4">Backlinks</h2>
+                <div id="backlinks-list" class="space-y-3">
+                    <p class="text-gray-500 text-sm">No backlinks recorded</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Link Types Manager Modal -->
+<div id="types-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold">Manage Link Types</h2>
+            <button onclick="hideTypesManager()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="types-list" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
+        <div class="flex gap-2">
+            <input type="text" id="new-type-name" placeholder="New link type..."
+                   class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500"
+                   onkeydown="if(event.key==='Enter') addNewType()">
+            <button onclick="addNewType()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Add</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const DOMAIN_ID = '{{ domain_id }}';
+    let domainData = null;
+    let linkTypes = [];
+    let editingPriceId = null;
+
+    // ============ Load Data ============
+
+    async function loadDomain() {
+        try {
+            const res = await fetch(`/api/v1/domains/${DOMAIN_ID}`);
+            if (!res.ok) {
+                showToast('Domain not found', 'error');
+                return;
+            }
+            domainData = await res.json();
+            renderDomain();
+        } catch (e) {
+            showToast('Failed to load domain', 'error');
+        }
+    }
+
+    async function loadLinkTypes() {
+        try {
+            const res = await fetch('/api/v1/link-prices/types/list');
+            const data = await res.json();
+            linkTypes = data.types || [];
+            renderTypeDropdown();
+        } catch (e) {
+            console.error('Failed to load link types:', e);
+        }
+    }
+
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/v1/domains/categories/list');
+            const data = await res.json();
+            const select = document.getElementById('field-category');
+            select.innerHTML = '<option value="">None</option>' +
+                (data.categories || []).map(c => `<option value="${c}">${c}</option>`).join('') +
+                '<option value="__new__">+ New Category</option>';
+            if (domainData) {
+                select.value = domainData.category || '';
+            }
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+        }
+    }
+
+    // ============ Render ============
+
+    function renderDomain() {
+        const d = domainData;
+        
+        // Header
+        document.getElementById('domain-title').textContent = d.domain;
+        document.getElementById('domain-link').href = `https://${d.domain}`;
+        document.getElementById('domain-status').textContent = d.status.toUpperCase();
+        
+        // Status color
+        const statusEl = document.getElementById('domain-status');
+        const statusColors = {
+            'new': 'bg-gray-600', 'analyzing': 'bg-pink-600', 'analyzed': 'bg-pink-700',
+            'contacted': 'bg-yellow-600', 'replied': 'bg-green-600', 'negotiating': 'bg-orange-600',
+            'deal_closed': 'bg-green-700', 'rejected': 'bg-red-600', 'blacklisted': 'bg-red-900',
+        };
+        statusEl.className = `px-2 py-1 rounded text-xs font-medium ${statusColors[d.status] || 'bg-gray-700'}`;
+        
+        // Metrics
+        document.getElementById('metric-dr').textContent = d.domain_rating ?? '-';
+        document.getElementById('metric-traffic').textContent = d.organic_traffic ? d.organic_traffic.toLocaleString() : '-';
+        document.getElementById('metric-refdomains').textContent = d.referring_domains ? d.referring_domains.toLocaleString() : '-';
+        document.getElementById('metric-backlinks').textContent = d.backlinks_count ? d.backlinks_count.toLocaleString() : '-';
+        
+        // Contact info
+        document.getElementById('view-owner').textContent = d.owner || '-';
+        document.getElementById('view-email').textContent = d.email || '-';
+        document.getElementById('view-email').innerHTML = d.email 
+            ? `<a href="mailto:${d.email}" class="text-pink-400 hover:underline">${d.email}</a>` 
+            : '-';
+        document.getElementById('view-telegram').textContent = d.telegram || '-';
+        document.getElementById('view-telegram').innerHTML = d.telegram 
+            ? `<a href="https://t.me/${d.telegram.replace('@', '')}" target="_blank" class="text-pink-400 hover:underline">${d.telegram}</a>`
+            : '-';
+        
+        document.getElementById('edit-owner').value = d.owner || '';
+        document.getElementById('edit-email').value = d.email || '';
+        document.getElementById('edit-telegram').value = d.telegram || '';
+        
+        // Classification
+        document.getElementById('field-status').value = d.status;
+        document.getElementById('field-category').value = d.category || '';
+        document.getElementById('field-tags').value = d.tags || '';
+        document.getElementById('field-competitor').checked = d.is_competitor;
+        document.getElementById('field-adult').checked = d.is_adult;
+        
+        // Notes
+        document.getElementById('notes-view').textContent = d.notes || '-';
+        document.getElementById('edit-notes').value = d.notes || '';
+        
+        // Backlinks
+        renderBacklinks(d.backlinks || []);
+        
+        // Link prices
+        renderPrices(d.link_prices || []);
+    }
+
+    function renderBacklinks(backlinks) {
+        const container = document.getElementById('backlinks-list');
+        if (backlinks.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-sm">No backlinks recorded</p>';
+            return;
+        }
+        
+        container.innerHTML = backlinks.map(bl => `
+            <div class="p-3 bg-gray-700/50 rounded-lg">
+                <div class="text-xs text-gray-400">Links to: <span class="text-pink-400">${bl.target_domain}</span></div>
+                <div class="text-sm mt-1">
+                    <a href="${bl.source_url || '#'}" target="_blank" class="text-pink-400 hover:underline text-xs break-all">
+                        ${bl.source_url || 'Unknown URL'}
+                    </a>
+                </div>
+                <div class="flex gap-3 mt-1 text-xs text-gray-400">
+                    <span>Anchor: "${bl.anchor_text || '(empty)'}"</span>
+                    <span class="${bl.is_dofollow ? 'text-green-400' : 'text-red-400'}">${bl.is_dofollow ? 'dofollow' : 'nofollow'}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPrices(prices) {
+        const container = document.getElementById('prices-list');
+        if (prices.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-sm">No prices added yet</p>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="w-full">
+                <thead>
+                    <tr class="text-xs text-gray-400 border-b border-gray-700">
+                        <th class="py-2 text-left">Type</th>
+                        <th class="py-2 text-left">Price</th>
+                        <th class="py-2 text-left">Duration</th>
+                        <th class="py-2 text-left">Notes</th>
+                        <th class="py-2 w-20"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${prices.map(p => `
+                        <tr class="border-b border-gray-700/50 text-sm">
+                            <td class="py-2 font-medium">${p.link_type}</td>
+                            <td class="py-2">${p.price != null ? `${p.price} ${p.currency}` : '-'}</td>
+                            <td class="py-2">${p.is_permanent ? '<span class="text-green-400">Permanent</span>' : (p.duration_months ? `${p.duration_months} months` : '-')}</td>
+                            <td class="py-2 text-gray-400 text-xs">${p.notes || ''}</td>
+                            <td class="py-2 text-right">
+                                <button onclick="editPrice('${p.id}')" class="text-gray-400 hover:text-white text-xs mr-2">Edit</button>
+                                <button onclick="deletePrice('${p.id}')" class="text-red-400 hover:text-red-300 text-xs">×</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderTypeDropdown() {
+        const select = document.getElementById('price-type-select');
+        select.innerHTML = '<option value="">Select type...</option>' +
+            linkTypes.map(t => `<option value="${t}">${t}</option>`).join('') +
+            '<option value="__new__">+ New Type</option>';
+    }
+
+    // ============ Contact Editing ============
+
+    function toggleEditContact() {
+        const view = document.getElementById('contact-view');
+        const edit = document.getElementById('contact-edit');
+        const btn = document.getElementById('edit-contact-btn');
+        
+        view.classList.toggle('hidden');
+        edit.classList.toggle('hidden');
+        btn.textContent = edit.classList.contains('hidden') ? '✏️ Edit' : '✏️ Editing';
+    }
+
+    async function saveContact() {
+        const updates = {
+            owner: document.getElementById('edit-owner').value.trim() || null,
+            email: document.getElementById('edit-email').value.trim() || null,
+            telegram: document.getElementById('edit-telegram').value.trim() || null,
+        };
+        
+        try {
+            const res = await fetch(`/api/v1/domains/${DOMAIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            });
+            if (res.ok) {
+                Object.assign(domainData, updates);
+                renderDomain();
+                toggleEditContact();
+                showToast('Contact info saved');
+            } else {
+                showToast('Failed to save', 'error');
+            }
+        } catch (e) {
+            showToast('Error saving contact info', 'error');
+        }
+    }
+
+    // ============ Notes Editing ============
+
+    function toggleEditNotes() {
+        document.getElementById('notes-view').classList.toggle('hidden');
+        document.getElementById('notes-edit').classList.toggle('hidden');
+        document.getElementById('edit-notes-btn').classList.toggle('hidden');
+    }
+
+    async function saveNotes() {
+        const notes = document.getElementById('edit-notes').value.trim() || null;
+        await saveField('notes', notes);
+        domainData.notes = notes;
+        renderDomain();
+        toggleEditNotes();
+    }
+
+    // ============ Classification ============
+
+    async function saveField(field, value) {
+        try {
+            const res = await fetch(`/api/v1/domains/${DOMAIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value }),
+            });
+            if (res.ok) {
+                domainData[field] = value;
+                // Update status badge if status changed
+                if (field === 'status') {
+                    renderDomain();
+                }
+                showToast(`Updated ${field}`);
+            }
+        } catch (e) {
+            showToast(`Failed to update ${field}`, 'error');
+        }
+    }
+
+    function handleCategoryChange() {
+        const select = document.getElementById('field-category');
+        if (select.value === '__new__') {
+            const name = prompt('Enter new category:');
+            if (name) {
+                // Add to dropdown and select
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.insertBefore(option, select.querySelector('[value="__new__"]'));
+                select.value = name;
+                saveField('category', name);
+            } else {
+                select.value = domainData.category || '';
+            }
+        } else {
+            saveField('category', select.value || null);
+        }
+    }
+
+    // ============ Link Prices ============
+
+    function showAddPriceForm() {
+        editingPriceId = null;
+        document.getElementById('add-price-form').classList.remove('hidden');
+        document.getElementById('price-type-select').value = '';
+        document.getElementById('price-type-custom').classList.add('hidden');
+        document.getElementById('price-type-custom').value = '';
+        document.getElementById('price-amount').value = '';
+        document.getElementById('price-currency').value = 'USD';
+        document.getElementById('price-duration').value = '12';
+        document.getElementById('price-duration').disabled = false;
+        document.getElementById('price-permanent').checked = false;
+        document.getElementById('price-notes').value = '';
+    }
+
+    function hideAddPriceForm() {
+        document.getElementById('add-price-form').classList.add('hidden');
+        editingPriceId = null;
+    }
+
+    function handleTypeSelect() {
+        const select = document.getElementById('price-type-select');
+        const custom = document.getElementById('price-type-custom');
+        if (select.value === '__new__') {
+            custom.classList.remove('hidden');
+            custom.focus();
+        } else {
+            custom.classList.add('hidden');
+        }
+    }
+
+    function togglePermanent() {
+        const perm = document.getElementById('price-permanent').checked;
+        document.getElementById('price-duration').disabled = perm;
+    }
+
+    async function savePrice() {
+        const typeSelect = document.getElementById('price-type-select').value;
+        const typeCustom = document.getElementById('price-type-custom').value.trim();
+        const linkType = typeSelect === '__new__' ? typeCustom : typeSelect;
+        
+        if (!linkType) {
+            showToast('Select or enter a link type', 'error');
+            return;
+        }
+        
+        const isPermanent = document.getElementById('price-permanent').checked;
+        const priceVal = document.getElementById('price-amount').value;
+        
+        const payload = {
+            domain_id: DOMAIN_ID,
+            link_type: linkType,
+            price: priceVal ? parseFloat(priceVal) : null,
+            currency: document.getElementById('price-currency').value,
+            duration_months: isPermanent ? null : parseInt(document.getElementById('price-duration').value),
+            is_permanent: isPermanent,
+            notes: document.getElementById('price-notes').value.trim() || null,
+        };
+        
+        try {
+            let res;
+            if (editingPriceId) {
+                // Update
+                const { domain_id, ...updatePayload } = payload;
+                res = await fetch(`/api/v1/link-prices/${editingPriceId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload),
+                });
+            } else {
+                // Create
+                res = await fetch('/api/v1/link-prices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            }
+            
+            if (res.ok) {
+                // If new custom type, add it as preset
+                if (typeSelect === '__new__' && typeCustom) {
+                    fetch('/api/v1/link-prices/types/add?name=' + encodeURIComponent(typeCustom), { method: 'POST' })
+                        .then(() => loadLinkTypes());
+                }
+                
+                showToast(editingPriceId ? 'Price updated' : 'Price added');
+                hideAddPriceForm();
+                await loadDomain();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Failed to save', 'error');
+            }
+        } catch (e) {
+            showToast('Error saving price', 'error');
+        }
+    }
+
+    function editPrice(priceId) {
+        const price = domainData.link_prices.find(p => p.id === priceId);
+        if (!price) return;
+        
+        editingPriceId = priceId;
+        document.getElementById('add-price-form').classList.remove('hidden');
+        
+        // Set type
+        const typeSelect = document.getElementById('price-type-select');
+        const customInput = document.getElementById('price-type-custom');
+        if (linkTypes.includes(price.link_type)) {
+            typeSelect.value = price.link_type;
+            customInput.classList.add('hidden');
+        } else {
+            typeSelect.value = '__new__';
+            customInput.classList.remove('hidden');
+            customInput.value = price.link_type;
+        }
+        
+        document.getElementById('price-amount').value = price.price ?? '';
+        document.getElementById('price-currency').value = price.currency || 'USD';
+        document.getElementById('price-permanent').checked = price.is_permanent;
+        document.getElementById('price-duration').value = price.duration_months || '12';
+        document.getElementById('price-duration').disabled = price.is_permanent;
+        document.getElementById('price-notes').value = price.notes || '';
+    }
+
+    async function deletePrice(priceId) {
+        if (!confirm('Delete this price?')) return;
+        
+        try {
+            const res = await fetch(`/api/v1/link-prices/${priceId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Price deleted');
+                await loadDomain();
+            }
+        } catch (e) {
+            showToast('Failed to delete', 'error');
+        }
+    }
+
+    // ============ Link Types Manager ============
+
+    function showTypesManager() {
+        document.getElementById('types-modal').classList.remove('hidden');
+        renderTypesManager();
+    }
+
+    function hideTypesManager() {
+        document.getElementById('types-modal').classList.add('hidden');
+    }
+
+    function renderTypesManager() {
+        const container = document.getElementById('types-list');
+        if (linkTypes.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-sm">No link types yet</p>';
+            return;
+        }
+        container.innerHTML = linkTypes.map(t => `
+            <div class="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg group" id="type-row-${CSS.escape(t)}">
+                <span class="flex-1 text-sm type-label">${t}</span>
+                <input type="text" value="${t}" 
+                       class="hidden flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm type-input focus:outline-none focus:border-pink-500">
+                <button onclick="startRenameType('${t.replace(/'/g, "\\'")}')" 
+                        class="text-gray-400 hover:text-white text-xs type-edit-btn">Rename</button>
+                <button onclick="confirmRenameType('${t.replace(/'/g, "\\'")}')" 
+                        class="hidden text-green-400 hover:text-green-300 text-xs type-save-btn">Save</button>
+                <button onclick="cancelRenameType('${t.replace(/'/g, "\\'")}')" 
+                        class="hidden text-gray-400 hover:text-white text-xs type-cancel-btn">Cancel</button>
+                <button onclick="deleteType('${t.replace(/'/g, "\\'")}')" 
+                        class="text-red-400 hover:text-red-300 text-xs type-delete-btn">×</button>
+            </div>
+        `).join('');
+    }
+
+    function startRenameType(name) {
+        // Show input, hide label
+        const rows = document.querySelectorAll('#types-list > div');
+        rows.forEach(row => {
+            const label = row.querySelector('.type-label');
+            const input = row.querySelector('.type-input');
+            const editBtn = row.querySelector('.type-edit-btn');
+            const saveBtn = row.querySelector('.type-save-btn');
+            const cancelBtn = row.querySelector('.type-cancel-btn');
+            
+            if (label.textContent === name) {
+                label.classList.add('hidden');
+                input.classList.remove('hidden');
+                editBtn.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+                cancelBtn.classList.remove('hidden');
+                input.focus();
+                input.select();
+                input.onkeydown = (e) => {
+                    if (e.key === 'Enter') confirmRenameType(name);
+                    if (e.key === 'Escape') cancelRenameType(name);
+                };
+            }
+        });
+    }
+
+    function cancelRenameType(name) {
+        renderTypesManager();
+    }
+
+    async function confirmRenameType(oldName) {
+        const rows = document.querySelectorAll('#types-list > div');
+        let newName = '';
+        rows.forEach(row => {
+            if (row.querySelector('.type-label').textContent === oldName) {
+                newName = row.querySelector('.type-input').value.trim();
+            }
+        });
+        
+        if (!newName || newName === oldName) {
+            renderTypesManager();
+            return;
+        }
+        
+        try {
+            const res = await fetch(`/api/v1/link-prices/types/rename?old_name=${encodeURIComponent(oldName)}&new_name=${encodeURIComponent(newName)}`, {
+                method: 'PUT',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                showToast(`Renamed "${oldName}" → "${newName}" (${data.prices_updated} prices updated)`);
+                await loadLinkTypes();
+                renderTypesManager();
+                // Refresh domain data in case prices changed
+                await loadDomain();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Rename failed', 'error');
+            }
+        } catch (e) {
+            showToast('Error renaming type', 'error');
+        }
+    }
+
+    async function deleteType(name) {
+        if (!confirm(`Delete link type "${name}"?\n\nExisting prices using this type won't be removed.`)) return;
+        
+        try {
+            const res = await fetch(`/api/v1/link-prices/types/delete?name=${encodeURIComponent(name)}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                showToast(`Deleted type "${name}"`);
+                await loadLinkTypes();
+                renderTypesManager();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Delete failed', 'error');
+            }
+        } catch (e) {
+            showToast('Error deleting type', 'error');
+        }
+    }
+
+    async function addNewType() {
+        const input = document.getElementById('new-type-name');
+        const name = input.value.trim();
+        if (!name) return;
+        
+        try {
+            const res = await fetch(`/api/v1/link-prices/types/add?name=${encodeURIComponent(name)}`, {
+                method: 'POST',
+            });
+            if (res.ok) {
+                showToast(`Added type "${name}"`);
+                input.value = '';
+                await loadLinkTypes();
+                renderTypesManager();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Add failed', 'error');
+            }
+        } catch (e) {
+            showToast('Error adding type', 'error');
+        }
+    }
+
+    // ============ Init ============
+    
+    loadDomain();
+    loadLinkTypes();
+    loadCategories();
+</script>
+{% endblock %}

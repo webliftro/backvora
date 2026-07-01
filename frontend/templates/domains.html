@@ -1,0 +1,787 @@
+{% extends "base.html" %}
+
+{% block title %}Domains - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Domains</h1>
+        <div class="flex gap-2">
+            <button onclick="showPresetsModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium">
+                ⚙️ Presets
+            </button>
+            <button onclick="showImportModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium">
+                📋 Bulk Import
+            </button>
+            <a href="/domains/new" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                + Add Domain
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters Row 1 -->
+    <div class="flex gap-4 items-center flex-wrap">
+        <input 
+            type="text" 
+            id="search" 
+            placeholder="Search domains..."
+            onkeyup="applyFilters()"
+            class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-pink-500 w-48"
+        >
+        <select id="status-filter" onchange="applyFilters()" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <option value="">All Status</option>
+            <option value="new">New</option>
+            <option value="analyzing">Analyzing</option>
+            <option value="analyzed">Analyzed</option>
+            <option value="contacted">Contacted</option>
+            <option value="replied">Replied</option>
+            <option value="negotiating">Negotiating</option>
+            <option value="deal_closed">Deal Closed</option>
+            <option value="rejected">Rejected</option>
+            <option value="blacklisted">Blacklisted</option>
+        </select>
+        <select id="category-filter" onchange="applyFilters()" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <option value="">All Categories</option>
+        </select>
+        <select id="target-filter" onchange="applyFilters()" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <option value="">All Targets</option>
+        </select>
+        <select id="has-backlink-filter" onchange="applyFilters()" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <option value="">Has Backlink?</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+        <button onclick="clearFilters()" class="px-3 py-2 text-gray-400 hover:text-white text-sm">
+            Clear All
+        </button>
+    </div>
+    
+    <!-- Filters Row 2: Numeric ranges -->
+    <div class="flex gap-4 items-center flex-wrap text-sm">
+        <div class="flex items-center gap-2">
+            <span class="text-gray-400">Traffic:</span>
+            <input type="number" id="min-traffic" placeholder="Min" onchange="applyFilters()" 
+                   class="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm">
+            <span class="text-gray-500">-</span>
+            <input type="number" id="max-traffic" placeholder="Max" onchange="applyFilters()" 
+                   class="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm">
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-gray-400">DR:</span>
+            <input type="number" id="min-dr" placeholder="Min" min="0" max="100" onchange="applyFilters()" 
+                   class="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm">
+            <span class="text-gray-500">-</span>
+            <input type="number" id="max-dr" placeholder="Max" min="0" max="100" onchange="applyFilters()" 
+                   class="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm">
+        </div>
+        <label class="flex items-center gap-2 ml-4">
+            <input type="checkbox" id="competitor-filter" onchange="applyFilters()">
+            <span class="text-gray-400">Is Competitor</span>
+        </label>
+    </div>
+    
+    <!-- Data Table -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        <div id="domains-table"></div>
+        
+        <!-- Pagination -->
+        <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-700">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-400">Rows per page:</span>
+                <select id="page-size" onchange="changePageSize()" class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm">
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="250">250</option>
+                    <option value="500">500</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="page-info" class="text-sm text-gray-400"></span>
+                <div class="flex gap-2">
+                    <button onclick="prevPage()" id="prev-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50">
+                        ← Prev
+                    </button>
+                    <button onclick="nextPage()" id="next-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50">
+                        Next →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div id="import-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Import Domains</h2>
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700 mb-4">
+            <button onclick="showImportTab('text')" id="tab-text" class="px-4 py-2 text-sm font-medium border-b-2 border-pink-500">
+                Text List
+            </button>
+            <button onclick="showImportTab('csv')" id="tab-csv" class="px-4 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-white">
+                Ahrefs CSV
+            </button>
+        </div>
+        
+        <!-- Text Import -->
+        <div id="import-text-form">
+            <form onsubmit="importDomains(event)">
+                <textarea 
+                    id="import-domains" 
+                    rows="8"
+                    placeholder="Enter domains (one per line)..."
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 font-mono text-sm"
+                ></textarea>
+                <label class="flex items-center gap-2 mt-3">
+                    <input type="checkbox" id="import-competitor">
+                    <span class="text-sm">Mark as competitors</span>
+                </label>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" onclick="hideImportModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                        Import
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- CSV Import -->
+        <div id="import-csv-form" class="hidden">
+            <form onsubmit="importAhrefsCsv(event)">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-400 mb-2">Competitor Domain</label>
+                    <input 
+                        type="text" 
+                        id="csv-competitor" 
+                        placeholder="e.g., lemoncams.com"
+                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500"
+                        required
+                    >
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-400 mb-2">Ahrefs Backlinks CSV</label>
+                    <input 
+                        type="file" 
+                        id="csv-file" 
+                        accept=".csv"
+                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"
+                        required
+                    >
+                </div>
+                <p class="text-xs text-gray-500 mb-4">
+                    Ahrefs → Site Explorer → Backlinks → One per domain → Sort by Traffic → Export
+                </p>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="hideImportModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                        Import CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Presets Modal -->
+<div id="presets-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Manage Presets</h2>
+        
+        <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2">Predefined Categories (one per line)</label>
+            <textarea id="preset-categories" rows="5" placeholder="Porn Site&#10;Link Directory&#10;Blog&#10;Forum"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 font-mono text-sm"></textarea>
+        </div>
+        
+        <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2">Predefined Tags (one per line)</label>
+            <textarea id="preset-tags" rows="5" placeholder="high-priority&#10;contacted&#10;follow-up&#10;blacklisted"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 font-mono text-sm"></textarea>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="hidePresetsModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                Cancel
+            </button>
+            <button onclick="savePresets()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                Save
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Edit Modal -->
+<div id="bulk-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Edit <span id="bulk-edit-count">0</span> Domains</h2>
+        <form onsubmit="applyBulkEdit(event)">
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Category</label>
+                <select id="bulk-category" class="category-select w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    <option value="">-- Don't Change --</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Tags (comma-separated)</label>
+                <input type="text" id="bulk-tags" placeholder="tag1, tag2, tag3"
+                       class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500">
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideBulkEditModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                    Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include 'components/data_table.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let domainsTable;
+    let allDomains = [];
+    let filteredDomains = [];
+    let currentPage = 1;
+    let pageSize = 50;
+    
+    // Column definitions
+    const columns = [
+        { key: 'domain', label: 'Domain', format: 'domain', sortable: true },
+        { key: 'organic_traffic', label: 'Traffic', format: 'number', sortable: true },
+        { key: 'domain_rating', label: 'DR', sortable: true },
+        { key: 'backlink_target', label: 'Links To', sortable: true },
+        { key: 'backlink_url', label: 'Backlink', format: 'link', sortable: false },
+        { key: 'backlink_anchor', label: 'Anchor', sortable: true, visible: false },
+        { key: 'backlink_count', label: '#Links', sortable: true, visible: false },
+        { key: 'category', label: 'Category', sortable: true },
+        { key: 'tags', label: 'Tags', format: 'tags', sortable: true, visible: false },
+        { key: 'link_types', label: 'Link Types', format: 'tags', sortable: false },
+        { key: 'status', label: 'Status', sortable: true },
+        { key: 'is_competitor', label: 'Is Competitor', format: 'boolean', sortable: true, visible: false },
+        { key: 'is_adult', label: 'Adult', format: 'boolean', sortable: true, visible: false },
+        { key: 'created_at', label: 'Added', sortable: true, visible: false },
+    ];
+    
+    // Initialize table
+    async function initTable() {
+        domainsTable = new DataTable('domains-table', {
+            columns: columns,
+            data: [],
+            sortKey: 'organic_traffic',
+            sortDir: 'desc',
+            idKey: 'id',
+            selectable: true,
+            onDelete: deleteDomain,
+            onBulkDelete: bulkDeleteDomains,
+            onSort: function(key, dir) {
+                currentPage = 1;
+                renderPage();
+            },
+        });
+        
+        await loadDomains();
+        await loadCategories();
+    }
+    
+    // Load categories for dropdown
+    let allCategories = [];
+    let allTargets = [];
+    
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/v1/domains/categories/list');
+            const data = await response.json();
+            allCategories = data.categories || [];
+            updateCategoryDropdowns();
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+        }
+    }
+    
+    function updateCategoryDropdowns() {
+        // Update filter dropdown
+        const filterSelect = document.getElementById('category-filter');
+        if (filterSelect) {
+            const current = filterSelect.value;
+            filterSelect.innerHTML = '<option value="">All Categories</option>' +
+                allCategories.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+        }
+        
+        // Update bulk edit dropdown
+        const selects = document.querySelectorAll('.category-select');
+        selects.forEach(select => {
+            const current = select.value;
+            select.innerHTML = '<option value="">-- Select --</option>' +
+                allCategories.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('') +
+                '<option value="__new__">+ New Category</option>';
+        });
+    }
+    
+    function loadTargetsFromData() {
+        // Extract unique target competitors from loaded data
+        const targets = new Set();
+        allDomains.forEach(d => {
+            if (d.backlink_target) {
+                targets.add(d.backlink_target);
+            }
+        });
+        allTargets = Array.from(targets).sort();
+        
+        const filterSelect = document.getElementById('target-filter');
+        if (filterSelect) {
+            filterSelect.innerHTML = '<option value="">All Targets</option>' +
+                allTargets.map(t => `<option value="${t}">${t}</option>`).join('');
+        }
+    }
+    
+    async function loadDomains() {
+        try {
+            // Fetch domains with pagination
+            allDomains = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore) {
+                const response = await fetch(`/api/v1/domains?page=${page}&per_page=100`);
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    allDomains = allDomains.concat(data.items);
+                    page++;
+                    hasMore = page <= data.pages;
+                } else {
+                    hasMore = false;
+                }
+                
+                // Safety limit
+                if (page > 100) break;
+            }
+            
+            // Populate target filter from data
+            loadTargetsFromData();
+            
+            applyFilters();
+        } catch (e) {
+            console.error('Failed to load domains:', e);
+            showToast('Failed to load domains', 'error');
+        }
+    }
+    
+    function applyFilters() {
+        const search = document.getElementById('search').value.toLowerCase();
+        const status = document.getElementById('status-filter').value;
+        const category = document.getElementById('category-filter').value;
+        const target = document.getElementById('target-filter').value;
+        const hasBacklink = document.getElementById('has-backlink-filter').value;
+        const competitorOnly = document.getElementById('competitor-filter').checked;
+        
+        const minTraffic = parseInt(document.getElementById('min-traffic').value) || 0;
+        const maxTraffic = parseInt(document.getElementById('max-traffic').value) || Infinity;
+        const minDR = parseFloat(document.getElementById('min-dr').value) || 0;
+        const maxDR = parseFloat(document.getElementById('max-dr').value) || 100;
+        
+        filteredDomains = allDomains.filter(d => {
+            // Text search
+            if (search && !d.domain.toLowerCase().includes(search)) return false;
+            
+            // Status filter
+            if (status && d.status !== status) return false;
+            
+            // Category filter
+            if (category && d.category !== category) return false;
+            
+            // Target competitor filter
+            if (target && d.backlink_target !== target) return false;
+            
+            // Has backlink filter
+            if (hasBacklink === 'yes' && !d.backlink_url) return false;
+            if (hasBacklink === 'no' && d.backlink_url) return false;
+            
+            // Is competitor filter
+            if (competitorOnly && !d.is_competitor) return false;
+            
+            // Traffic range
+            const traffic = d.organic_traffic || 0;
+            if (traffic < minTraffic) return false;
+            if (maxTraffic !== Infinity && traffic > maxTraffic) return false;
+            
+            // DR range
+            const dr = d.domain_rating || 0;
+            if (dr < minDR) return false;
+            if (dr > maxDR) return false;
+            
+            return true;
+        });
+        
+        currentPage = 1;
+        renderPage();
+    }
+    
+    function clearFilters() {
+        document.getElementById('search').value = '';
+        document.getElementById('status-filter').value = '';
+        document.getElementById('category-filter').value = '';
+        document.getElementById('target-filter').value = '';
+        document.getElementById('has-backlink-filter').value = '';
+        document.getElementById('competitor-filter').checked = false;
+        document.getElementById('min-traffic').value = '';
+        document.getElementById('max-traffic').value = '';
+        document.getElementById('min-dr').value = '';
+        document.getElementById('max-dr').value = '';
+        applyFilters();
+    }
+    
+    function renderPage() {
+        // Sort the FULL filtered dataset by the current sort key
+        const sortKey = domainsTable.config.sortKey;
+        const sortDir = domainsTable.config.sortDir;
+        
+        if (sortKey) {
+            const dir = sortDir === 'asc' ? 1 : -1;
+            filteredDomains.sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                if (valA == null) return 1;
+                if (valB == null) return -1;
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * dir;
+                }
+                return String(valA).localeCompare(String(valB)) * dir;
+            });
+        }
+        
+        const totalPages = Math.ceil(filteredDomains.length / pageSize);
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const pageData = filteredDomains.slice(start, end);
+        
+        // Update data and do a full render (headers with sort arrows + body)
+        domainsTable.config.data = pageData;
+        domainsTable.selectedIds.clear();
+        domainsTable.render();
+        domainsTable.updateBulkActions();
+        
+        // Update pagination info
+        const from = filteredDomains.length > 0 ? start + 1 : 0;
+        document.getElementById('page-info').textContent = 
+            `${from}-${Math.min(end, filteredDomains.length)} of ${filteredDomains.length}`;
+        document.getElementById('prev-btn').disabled = currentPage <= 1;
+        document.getElementById('next-btn').disabled = currentPage >= totalPages;
+    }
+    
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderPage();
+        }
+    }
+    
+    function nextPage() {
+        const totalPages = Math.ceil(filteredDomains.length / pageSize);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderPage();
+        }
+    }
+    
+    function changePageSize() {
+        pageSize = parseInt(document.getElementById('page-size').value);
+        currentPage = 1;
+        renderPage();
+    }
+    
+    async function deleteDomain(id) {
+        try {
+            await fetch(`/api/v1/domains/${id}`, { method: 'DELETE' });
+            allDomains = allDomains.filter(d => d.id !== id);
+            showToast('Domain deleted');
+        } catch (e) {
+            showToast('Delete failed', 'error');
+            throw e;
+        }
+    }
+    
+    async function bulkDeleteDomains(ids) {
+        try {
+            const response = await fetch('/api/v1/domains/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            });
+            const data = await response.json();
+            allDomains = allDomains.filter(d => !ids.includes(d.id));
+            filteredDomains = filteredDomains.filter(d => !ids.includes(d.id));
+            showToast(`Deleted ${data.deleted} domains`);
+            renderPage();
+        } catch (e) {
+            showToast('Bulk delete failed', 'error');
+            throw e;
+        }
+    }
+    
+    // Bulk Edit Modal
+    let bulkEditIds = [];
+    
+    function showBulkEditModal(ids) {
+        bulkEditIds = ids;
+        document.getElementById('bulk-edit-count').textContent = ids.length;
+        document.getElementById('bulk-edit-modal').classList.remove('hidden');
+        updateCategoryDropdowns();
+    }
+    
+    function hideBulkEditModal() {
+        document.getElementById('bulk-edit-modal').classList.add('hidden');
+    }
+    
+    async function applyBulkEdit(event) {
+        event.preventDefault();
+        
+        let category = document.getElementById('bulk-category').value;
+        const tags = document.getElementById('bulk-tags').value.trim();
+        
+        // Handle new category
+        if (category === '__new__') {
+            category = prompt('Enter new category name:');
+            if (!category) return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/domains/bulk-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ids: bulkEditIds,
+                    category: category || null,
+                    tags: tags || null
+                })
+            });
+            const data = await response.json();
+            
+            // Update local data
+            allDomains.forEach(d => {
+                if (bulkEditIds.includes(d.id)) {
+                    if (category) d.category = category;
+                    if (tags) d.tags = tags;
+                }
+            });
+            filteredDomains.forEach(d => {
+                if (bulkEditIds.includes(d.id)) {
+                    if (category) d.category = category;
+                    if (tags) d.tags = tags;
+                }
+            });
+            
+            showToast(`Updated ${data.updated} domains`);
+            hideBulkEditModal();
+            domainsTable.clearSelection();
+            renderPage();
+            loadCategories();
+        } catch (e) {
+            showToast('Bulk update failed', 'error');
+        }
+    }
+    
+    // Import Modal
+    function showImportModal() {
+        document.getElementById('import-modal').classList.remove('hidden');
+    }
+    
+    function hideImportModal() {
+        document.getElementById('import-modal').classList.add('hidden');
+    }
+    
+    function showImportTab(tab) {
+        document.getElementById('import-text-form').classList.toggle('hidden', tab !== 'text');
+        document.getElementById('import-csv-form').classList.toggle('hidden', tab !== 'csv');
+        document.getElementById('tab-text').classList.toggle('border-pink-500', tab === 'text');
+        document.getElementById('tab-text').classList.toggle('border-transparent', tab !== 'text');
+        document.getElementById('tab-text').classList.toggle('text-gray-400', tab !== 'text');
+        document.getElementById('tab-csv').classList.toggle('border-pink-500', tab === 'csv');
+        document.getElementById('tab-csv').classList.toggle('border-transparent', tab !== 'csv');
+        document.getElementById('tab-csv').classList.toggle('text-gray-400', tab !== 'csv');
+    }
+    
+    async function importDomains(event) {
+        event.preventDefault();
+        const domains = document.getElementById('import-domains').value.split('\n').filter(d => d.trim());
+        const isCompetitor = document.getElementById('import-competitor').checked;
+        
+        if (domains.length === 0) {
+            showToast('Enter at least one domain', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/domains/bulk-import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains, is_competitor: isCompetitor })
+            });
+            const data = await response.json();
+            
+            let msg = `✅ Added ${data.added} domains`;
+            if (data.skipped > 0) {
+                msg += `\n⚠️ Skipped ${data.skipped} duplicates: ${data.skipped_domains.slice(0, 5).join(', ')}`;
+                if (data.skipped_domains.length > 5) msg += ` +${data.skipped_domains.length - 5} more`;
+            }
+            showToast(msg, data.skipped > 0 ? 'warning' : 'success');
+            hideImportModal();
+            document.getElementById('import-domains').value = '';
+            await loadDomains();
+        } catch (e) {
+            showToast('Import failed: ' + e.message, 'error');
+        }
+    }
+    
+    async function importAhrefsCsv(event) {
+        event.preventDefault();
+        const fileInput = document.getElementById('csv-file');
+        const competitor = document.getElementById('csv-competitor').value.trim();
+        
+        if (!fileInput.files[0]) {
+            showToast('Select a CSV file', 'error');
+            return;
+        }
+        if (!competitor) {
+            showToast('Enter competitor domain', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('competitor_domain', competitor);
+        
+        try {
+            const response = await fetch('/api/v1/import/ahrefs-backlinks', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`Imported ${data.domains_added} domains, ${data.backlinks_added} backlinks`);
+                hideImportModal();
+                fileInput.value = '';
+                await loadDomains();
+            } else {
+                showToast(data.detail || 'Import failed', 'error');
+            }
+        } catch (e) {
+            showToast('Import failed: ' + e.message, 'error');
+        }
+    }
+    
+    // Presets Modal
+    let presetCategories = [];
+    let presetTags = [];
+    
+    async function showPresetsModal() {
+        // Load current presets
+        try {
+            const catRes = await fetch('/api/v1/domains/categories/list');
+            const catData = await catRes.json();
+            presetCategories = catData.predefined || [];
+            
+            const tagRes = await fetch('/api/v1/domains/tags/list');
+            const tagData = await tagRes.json();
+            presetTags = tagData.predefined || [];
+            
+            document.getElementById('preset-categories').value = presetCategories.join('\n');
+            document.getElementById('preset-tags').value = presetTags.join('\n');
+        } catch (e) {
+            console.error('Failed to load presets:', e);
+        }
+        
+        document.getElementById('presets-modal').classList.remove('hidden');
+    }
+    
+    function hidePresetsModal() {
+        document.getElementById('presets-modal').classList.add('hidden');
+    }
+    
+    async function savePresets() {
+        const categories = document.getElementById('preset-categories').value
+            .split('\n').map(s => s.trim()).filter(s => s);
+        const tags = document.getElementById('preset-tags').value
+            .split('\n').map(s => s.trim()).filter(s => s);
+        
+        let allWarnings = [];
+        
+        try {
+            const catRes = await fetch('/api/v1/domains/presets/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(categories)
+            });
+            const catData = await catRes.json();
+            if (catData.warnings) {
+                allWarnings = allWarnings.concat(catData.warnings);
+            }
+            
+            const tagRes = await fetch('/api/v1/domains/presets/tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tags)
+            });
+            const tagData = await tagRes.json();
+            if (tagData.warnings) {
+                allWarnings = allWarnings.concat(tagData.warnings);
+            }
+            
+            if (allWarnings.length > 0) {
+                showToast(`Saved with warnings:\n${allWarnings.join('\n')}`, 'warning');
+            } else {
+                showToast('Presets saved');
+            }
+            
+            hidePresetsModal();
+            loadCategories();
+        } catch (e) {
+            showToast('Failed to save presets', 'error');
+        }
+    }
+    
+    // Apply URL params as filters on load
+    function applyUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const target = params.get('target');
+        if (target) {
+            // Wait for data to load, then set filter
+            const checkInterval = setInterval(() => {
+                const select = document.getElementById('target-filter');
+                if (select && select.options.length > 1) {
+                    select.value = target;
+                    applyFilters();
+                    clearInterval(checkInterval);
+                } else if (allDomains.length > 0) {
+                    // Data loaded but target not in dropdown yet — add it
+                    const option = document.createElement('option');
+                    option.value = target;
+                    option.textContent = target;
+                    option.selected = true;
+                    select.appendChild(option);
+                    applyFilters();
+                    clearInterval(checkInterval);
+                }
+            }, 200);
+            // Safety: stop after 5s
+            setTimeout(() => clearInterval(checkInterval), 5000);
+        }
+    }
+
+    // Initialize on load
+    initTable();
+    applyUrlParams();
+</script>
+{% endblock %}

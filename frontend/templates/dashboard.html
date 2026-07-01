@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <a href="/domains" class="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-pink-500 transition-colors cursor-pointer block">
+            <div class="text-sm text-gray-400">Total Domains</div>
+            <div class="text-3xl font-bold text-white" id="stat-domains">-</div>
+        </a>
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="text-sm text-gray-400">Contacts Found</div>
+            <div class="text-3xl font-bold text-pink-500" id="stat-contacts">-</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="text-sm text-gray-400">Emails Sent</div>
+            <div class="text-3xl font-bold text-pink-500" id="stat-sent">-</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div class="text-sm text-gray-400">Deals Closed</div>
+            <div class="text-3xl font-bold text-green-500" id="stat-deals">-</div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Quick Actions</h2>
+        <div class="flex flex-wrap gap-3">
+            <a href="/domains" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                + Add Domains
+            </a>
+            <button onclick="analyzeCompetitor()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">
+                🔍 Analyze Competitor
+            </button>
+            <button onclick="scrapeContacts()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium">
+                📧 Scrape Contacts
+            </button>
+        </div>
+    </div>
+    
+    <!-- Competitor Analysis Form -->
+    <div id="competitor-form" class="hidden bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Analyze Competitor Backlinks</h2>
+        <form onsubmit="fetchCompetitorBacklinks(event)">
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="competitor-domain" 
+                    placeholder="competitor.com"
+                    class="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500"
+                >
+                <input 
+                    type="number" 
+                    id="backlink-limit" 
+                    value="100" 
+                    min="1" 
+                    max="1000"
+                    class="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500"
+                >
+                <button type="submit" class="px-6 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">
+                    Fetch Backlinks
+                </button>
+            </div>
+        </form>
+        <div id="competitor-results" class="mt-4"></div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Recent Activity</h2>
+        <div id="activity-feed" class="space-y-2 text-sm text-gray-400">
+            <p>No recent activity</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load stats on page load
+    async function loadStats() {
+        try {
+            const domains = await fetch('/api/v1/domains?per_page=1').then(r => r.json());
+            document.getElementById('stat-domains').textContent = domains.total || 0;
+            
+            const contacts = await fetch('/api/v1/contacts?per_page=1').then(r => r.json());
+            document.getElementById('stat-contacts').textContent = contacts.total || 0;
+            
+            const messages = await fetch('/api/v1/outreach/messages?status=sent&per_page=1').then(r => r.json());
+            document.getElementById('stat-sent').textContent = messages.total || 0;
+        } catch (e) {
+            console.error('Failed to load stats:', e);
+        }
+    }
+    
+    function analyzeCompetitor() {
+        document.getElementById('competitor-form').classList.toggle('hidden');
+    }
+    
+    async function fetchCompetitorBacklinks(event) {
+        event.preventDefault();
+        const domain = document.getElementById('competitor-domain').value;
+        const limit = document.getElementById('backlink-limit').value;
+        const resultsDiv = document.getElementById('competitor-results');
+        
+        resultsDiv.innerHTML = '<p class="text-pink-400">Fetching backlinks...</p>';
+        
+        try {
+            const response = await fetch(`/api/v1/backlinks/fetch/${domain}?limit=${limit}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                resultsDiv.innerHTML = `
+                    <div class="text-green-400">
+                        ✓ Fetched ${data.total_fetched} backlinks<br>
+                        → ${data.domains_added} new domains added<br>
+                        → ${data.backlinks_added} backlinks recorded
+                    </div>
+                `;
+                loadStats();
+            } else {
+                resultsDiv.innerHTML = `<p class="text-red-400">Error: ${data.detail || 'Unknown error'}</p>`;
+            }
+        } catch (e) {
+            resultsDiv.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+    
+    function scrapeContacts() {
+        window.location.href = '/domains';
+    }
+    
+    // Load stats on page load
+    loadStats();
+</script>
+{% endblock %}

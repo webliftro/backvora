@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Add Domain - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="/domains" class="text-gray-400 hover:text-white">← Domains</a>
+        <h1 class="text-2xl font-bold">Add Domain</h1>
+    </div>
+
+    <form onsubmit="submitAddDomain(event)" class="space-y-6">
+        <!-- Domain name + dupe check -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <label class="block text-sm text-gray-400 mb-1">Domain *</label>
+            <input type="text" id="add-domain-name" placeholder="example.com" required autofocus
+                   oninput="checkDuplicate(this.value)"
+                   class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-lg">
+            <div id="dupe-warning" class="hidden mt-2 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-sm text-yellow-400">
+                ⚠️ <span id="dupe-text"></span>
+            </div>
+        </div>
+
+        <!-- Contact Info -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 class="text-lg font-semibold mb-4">Contact Info</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Owner</label>
+                    <input type="text" id="add-owner" placeholder="Site owner name"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Email</label>
+                    <input type="email" id="add-email" placeholder="owner@domain.com"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Telegram</label>
+                    <input type="text" id="add-telegram" placeholder="@username"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+                </div>
+            </div>
+        </div>
+
+        <!-- Classification -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 class="text-lg font-semibold mb-4">Classification</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Status</label>
+                    <select id="add-status" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <option value="new">New</option>
+                        <option value="analyzed">Analyzed</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="replied">Replied</option>
+                        <option value="negotiating">Negotiating</option>
+                        <option value="deal_closed">Deal Closed</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="blacklisted">Blacklisted</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Category</label>
+                    <select id="add-category" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <option value="">None</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs text-gray-400 mb-1">Tags</label>
+                <input type="text" id="add-tags" placeholder="tag1, tag2, ..."
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm">
+            </div>
+            <div class="flex gap-6">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="add-competitor">
+                    <span class="text-sm">Is Competitor</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="add-adult" checked>
+                    <span class="text-sm">Adult</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 class="text-lg font-semibold mb-4">Notes</h2>
+            <textarea id="add-notes" rows="4" placeholder="Any notes about this domain..."
+                      class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm"></textarea>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex justify-between items-center">
+            <a href="/domains" class="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</a>
+            <button type="submit" id="add-domain-btn" class="px-6 py-3 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">
+                Add Domain
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let dupeCheckTimer = null;
+    let allDomainNames = [];
+
+    // Load existing domain names for dupe checking
+    async function loadDomainNames() {
+        try {
+            let page = 1;
+            let hasMore = true;
+            while (hasMore) {
+                const res = await fetch(`/api/v1/domains?page=${page}&per_page=100`);
+                const data = await res.json();
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(d => allDomainNames.push({ id: d.id, domain: d.domain }));
+                    page++;
+                    hasMore = page <= data.pages;
+                } else {
+                    hasMore = false;
+                }
+                if (page > 100) break;
+            }
+        } catch (e) {
+            console.error('Failed to load domains for dupe check:', e);
+        }
+    }
+
+    function checkDuplicate(value) {
+        clearTimeout(dupeCheckTimer);
+        const warning = document.getElementById('dupe-warning');
+        const btn = document.getElementById('add-domain-btn');
+
+        let domain = value.trim().toLowerCase()
+            .replace(/^https?:\/\//, '')
+            .replace(/\/.*$/, '');
+
+        if (!domain) {
+            warning.classList.add('hidden');
+            btn.disabled = false;
+            return;
+        }
+
+        dupeCheckTimer = setTimeout(() => {
+            const match = allDomainNames.find(d => d.domain === domain);
+            if (match) {
+                document.getElementById('dupe-text').innerHTML =
+                    `This domain already exists! <a href="/domains/${match.id}" class="underline text-pink-400 hover:text-pink-300">View details →</a>`;
+                warning.classList.remove('hidden');
+                btn.disabled = true;
+            } else {
+                warning.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }, 300);
+    }
+
+    // Load categories
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/v1/domains/categories/list');
+            const data = await res.json();
+            const select = document.getElementById('add-category');
+            select.innerHTML = '<option value="">None</option>' +
+                (data.categories || []).map(c => `<option value="${c}">${c}</option>`).join('') +
+                '<option value="__new__">+ New Category</option>';
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+        }
+    }
+
+    async function submitAddDomain(event) {
+        event.preventDefault();
+
+        let domain = document.getElementById('add-domain-name').value.trim().toLowerCase()
+            .replace(/^https?:\/\//, '')
+            .replace(/\/.*$/, '');
+
+        if (!domain) {
+            showToast('Enter a domain name', 'error');
+            return;
+        }
+
+        let category = document.getElementById('add-category').value;
+        if (category === '__new__') {
+            category = prompt('Enter new category name:');
+            if (!category) return;
+        }
+
+        const payload = {
+            domain: domain,
+            is_competitor: document.getElementById('add-competitor').checked,
+            is_adult: document.getElementById('add-adult').checked,
+            category: category || null,
+            tags: document.getElementById('add-tags').value.trim() || null,
+            notes: document.getElementById('add-notes').value.trim() || null,
+        };
+
+        try {
+            const res = await fetch('/api/v1/domains', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                showToast(err.detail || 'Failed to create domain', 'error');
+                return;
+            }
+
+            const newDomain = await res.json();
+            const domainId = newDomain.id;
+
+            // Update extra fields via PUT
+            const owner = document.getElementById('add-owner').value.trim();
+            const email = document.getElementById('add-email').value.trim();
+            const telegram = document.getElementById('add-telegram').value.trim();
+            const status = document.getElementById('add-status').value;
+
+            if (owner || email || telegram || status !== 'new') {
+                await fetch(`/api/v1/domains/${domainId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        owner: owner || null,
+                        email: email || null,
+                        telegram: telegram || null,
+                        status: status,
+                    }),
+                });
+            }
+
+            showToast(`Added ${domain}`);
+            // Redirect to the new domain's detail page
+            window.location.href = `/domains/${domainId}`;
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    loadDomainNames();
+    loadCategories();
+</script>
+{% endblock %}

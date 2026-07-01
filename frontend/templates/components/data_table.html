@@ -1,0 +1,487 @@
+{# Reusable Data Table Component with Multi-Select #}
+
+<style>
+    .dt-resizable th {
+        position: relative;
+        border-right: 1px solid rgba(107, 114, 128, 0.5);
+    }
+    .dt-resizable th:last-child {
+        border-right: none;
+    }
+    .dt-resize-handle {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        z-index: 2;
+        margin-right: -3px;
+    }
+    .dt-resizable td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    body.dt-resizing,
+    body.dt-resizing * {
+        user-select: none !important;
+        cursor: col-resize !important;
+    }
+</style>
+
+<script>
+/**
+ * DataTable - Sortable, filterable table with column visibility and multi-select
+ */
+class DataTable {
+    constructor(containerId, config) {
+        this.container = document.getElementById(containerId);
+        this.config = {
+            columns: [],           // {key, label, sortable, visible, format}
+            data: [],
+            sortKey: null,
+            sortDir: 'asc',
+            onDelete: null,        // async (id) => {}
+            onBulkDelete: null,    // async (ids) => {}
+            onBulkUpdate: null,    // async (ids, updates) => {}
+            onRowClick: null,      // (row) => {}
+            idKey: 'id',
+            selectable: true,      // Enable multi-select
+            ...config
+        };
+        this.visibleColumns = new Set(
+            this.config.columns.filter(c => c.visible !== false).map(c => c.key)
+        );
+        this.selectedIds = new Set();
+        this.render();
+    }
+
+    setData(data) {
+        this.config.data = data;
+        this.selectedIds.clear();
+        this.renderBody();
+        this.updateBulkActions();
+    }
+
+    sort(key) {
+        if (this.config.sortKey === key) {
+            this.config.sortDir = this.config.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.config.sortKey = key;
+            this.config.sortDir = 'desc';
+        }
+        
+        if (this.config.onSort) {
+            // External handler manages full-dataset sorting + re-render
+            this.config.onSort(this.config.sortKey, this.config.sortDir);
+        } else {
+            // No external handler — re-render fully (headers + body)
+            this.render();
+        }
+    }
+
+    toggleColumn(key) {
+        if (this.visibleColumns.has(key)) {
+            this.visibleColumns.delete(key);
+        } else {
+            this.visibleColumns.add(key);
+        }
+        this.render();
+    }
+
+    toggleSelect(id) {
+        if (this.selectedIds.has(id)) {
+            this.selectedIds.delete(id);
+        } else {
+            this.selectedIds.add(id);
+        }
+        this.updateRowSelection(id);
+        this.updateBulkActions();
+    }
+
+    selectAll() {
+        const sorted = this.getSortedData();
+        if (this.selectedIds.size === sorted.length) {
+            this.selectedIds.clear();
+        } else {
+            sorted.forEach(row => this.selectedIds.add(row[this.config.idKey]));
+        }
+        this.renderBody();
+        this.updateBulkActions();
+    }
+
+    updateRowSelection(id) {
+        const row = document.getElementById(`${this.container.id}-row-${id}`);
+        const checkbox = document.getElementById(`${this.container.id}-cb-${id}`);
+        if (row) {
+            row.classList.toggle('bg-pink-900/20', this.selectedIds.has(id));
+        }
+        if (checkbox) {
+            checkbox.checked = this.selectedIds.has(id);
+        }
+        // Update header checkbox
+        const headerCb = document.getElementById(`${this.container.id}-select-all`);
+        if (headerCb) {
+            headerCb.checked = this.selectedIds.size === this.getSortedData().length && this.selectedIds.size > 0;
+            headerCb.indeterminate = this.selectedIds.size > 0 && this.selectedIds.size < this.getSortedData().length;
+        }
+    }
+
+    updateBulkActions() {
+        const bulkBar = document.getElementById(`${this.container.id}-bulk-bar`);
+        const countEl = document.getElementById(`${this.container.id}-selected-count`);
+        if (bulkBar) {
+            bulkBar.classList.toggle('hidden', this.selectedIds.size === 0);
+        }
+        if (countEl) {
+            countEl.textContent = this.selectedIds.size;
+        }
+    }
+
+    async bulkDelete() {
+        if (this.selectedIds.size === 0) return;
+        if (!confirm(`Delete ${this.selectedIds.size} selected items?`)) return;
+        
+        if (this.config.onBulkDelete) {
+            await this.config.onBulkDelete(Array.from(this.selectedIds));
+            this.config.data = this.config.data.filter(r => !this.selectedIds.has(r[this.config.idKey]));
+            this.selectedIds.clear();
+            this.renderBody();
+            this.updateBulkActions();
+        }
+    }
+
+    getSortedData() {
+        const data = [...this.config.data];
+        if (!this.config.sortKey) return data;
+        
+        const key = this.config.sortKey;
+        const dir = this.config.sortDir === 'asc' ? 1 : -1;
+        
+        return data.sort((a, b) => {
+            let valA = a[key];
+            let valB = b[key];
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return (valA - valB) * dir;
+            }
+            return String(valA).localeCompare(String(valB)) * dir;
+        });
+    }
+
+    formatValue(value, col, row) {
+        if (value == null || value === '') return '<span class="text-gray-500">-</span>';
+        if (col.format === 'number') {
+            return Number(value).toLocaleString();
+        }
+        if (col.format === 'link') {
+            // Truncate long URLs for display
+            let displayUrl = value;
+            try {
+                const url = new URL(value);
+                displayUrl = url.pathname.length > 30 
+                    ? url.pathname.substring(0, 30) + '...' 
+                    : url.pathname || '/';
+            } catch (e) {
+                displayUrl = value.length > 40 ? value.substring(0, 40) + '...' : value;
+            }
+            return `<a href="${value}" target="_blank" class="text-pink-400 hover:underline" title="${value}">${displayUrl}</a>`;
+        }
+        if (col.format === 'domain') {
+            return `<a href="/domains/${row ? row[this.config.idKey] : ''}" class="text-pink-400 hover:underline">${value}</a> <a href="https://${value}" target="_blank" class="text-gray-500 hover:text-gray-300 inline-block ml-1" title="Open website">↗</a>`;
+        }
+        if (col.format === 'boolean') {
+            return value ? '<span class="text-green-400">✓</span>' : '<span class="text-gray-500">✗</span>';
+        }
+        if (col.format === 'tags') {
+            if (!value) return '<span class="text-gray-500">-</span>';
+            const items = Array.isArray(value) ? value : value.split(',');
+            return items.filter(t => t && t.trim()).map(t => 
+                `<span class="inline-block px-2 py-0.5 bg-gray-700 rounded text-xs mr-1">${String(t).trim()}</span>`
+            ).join('') || '<span class="text-gray-500">-</span>';
+        }
+        return String(value);
+    }
+
+    render() {
+        const visibleCols = this.config.columns.filter(c => this.visibleColumns.has(c.key));
+        const tableId = this.container.id;
+        
+        this.container.innerHTML = `
+            <!-- Bulk Actions Bar -->
+            <div id="${tableId}-bulk-bar" class="hidden mb-4 p-3 bg-pink-900/30 border border-pink-700 rounded-lg flex items-center gap-4">
+                <span class="text-sm"><span id="${tableId}-selected-count">0</span> selected</span>
+                <button onclick="window.dt_${tableId}.bulkDelete()" class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm">
+                    Delete Selected
+                </button>
+                <button onclick="window.dt_${tableId}.showBulkTagModal()" class="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm">
+                    Set Category/Tags
+                </button>
+                <button onclick="window.dt_${tableId}.clearSelection()" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm ml-auto">
+                    Clear Selection
+                </button>
+            </div>
+            
+            <!-- Table Header -->
+            <div class="mb-4 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="${tableId}-count">${this.config.data.length}</span> rows
+                </div>
+                <div class="relative" id="${tableId}-col-wrapper">
+                    <button type="button" class="columns-toggle-btn px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+                            data-table="${tableId}">
+                        Columns ▾
+                    </button>
+                    <div id="${tableId}-col-menu" class="hidden absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 py-1 min-w-[150px]">
+                        ${this.config.columns.map(col => `
+                            <label class="flex items-center px-3 py-1 hover:bg-gray-700 cursor-pointer">
+                                <input type="checkbox" 
+                                       ${this.visibleColumns.has(col.key) ? 'checked' : ''}
+                                       class="col-toggle-cb mr-2"
+                                       data-table="${tableId}"
+                                       data-col="${col.key}">
+                                <span class="text-sm">${col.label}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="dt-resizable" style="table-layout:auto; width:max-content; min-width:100%">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            ${this.config.selectable ? `
+                                <th class="px-4 py-3 w-10">
+                                    <input type="checkbox" id="${tableId}-select-all" 
+                                           onchange="window.dt_${tableId}.selectAll()"
+                                           class="rounded">
+                                </th>
+                            ` : ''}
+                            ${visibleCols.map(col => `
+                                <th class="px-4 py-3 text-left text-sm font-medium ${col.sortable !== false ? 'cursor-pointer hover:bg-gray-600' : ''}"
+                                    ${col.sortable !== false ? `onclick="if(!window.dt_${tableId}._resizing) window.dt_${tableId}.sort('${col.key}')"` : ''}
+                                    data-col-key="${col.key}">
+                                    ${col.label}
+                                    ${this.config.sortKey === col.key ? (this.config.sortDir === 'asc' ? '↑' : '↓') : ''}
+                                    <span class="dt-resize-handle" data-resize="${col.key}"></span>
+                                </th>
+                            `).join('')}
+                            ${this.config.onDelete ? '<th class="px-4 py-3 w-20"></th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody id="${tableId}-body"></tbody>
+                </table>
+            </div>
+        `;
+        
+        window[`dt_${tableId}`] = this;
+        this.renderBody();
+        this.initResizeHandles();
+    }
+
+    initResizeHandles() {
+        const self = this;
+        this.container.querySelectorAll('.dt-resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', function(e) {
+                self.startResize(e, handle);
+            });
+        });
+    }
+
+    renderBody() {
+        const visibleCols = this.config.columns.filter(c => this.visibleColumns.has(c.key));
+        const sorted = this.getSortedData();
+        const tbody = document.getElementById(`${this.container.id}-body`);
+        const tableId = this.container.id;
+        
+        const colSpan = visibleCols.length + (this.config.selectable ? 1 : 0) + (this.config.onDelete ? 1 : 0);
+        
+        if (sorted.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-8 text-center text-gray-500">No data</td></tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = sorted.map(row => {
+            const id = row[this.config.idKey];
+            const selected = this.selectedIds.has(id);
+            return `
+                <tr id="${tableId}-row-${id}" 
+                    class="border-t border-gray-700 hover:bg-gray-700/50 transition-colors ${selected ? 'bg-pink-900/20' : ''}"
+                    ${this.config.onRowClick ? `onclick="window.dt_${tableId}.config.onRowClick(${JSON.stringify(row).replace(/"/g, '&quot;')})"` : ''}>
+                    ${this.config.selectable ? `
+                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="${tableId}-cb-${id}"
+                                   ${selected ? 'checked' : ''}
+                                   class="row-select-cb rounded"
+                                   data-table="${tableId}" data-id="${id}">
+                        </td>
+                    ` : ''}
+                    ${visibleCols.map(col => `
+                        <td class="px-4 py-3 text-sm">${this.formatValue(row[col.key], col, row)}</td>
+                    `).join('')}
+                    ${this.config.onDelete ? `
+                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                            <button class="row-delete-btn text-red-400 hover:text-red-300 text-sm"
+                                    data-table="${tableId}" data-id="${id}">Delete</button>
+                        </td>
+                    ` : ''}
+                </tr>
+            `;
+        }).join('');
+        
+        document.getElementById(`${this.container.id}-count`).textContent = sorted.length;
+    }
+
+    startResize(e, handle) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const th = handle.closest('th');
+        const table = th.closest('table');
+        const startX = e.pageX;
+        const startWidth = th.getBoundingClientRect().width;
+        
+        // Switch to fixed layout so widths stick
+        // First, set all current th widths explicitly
+        const allThs = table.querySelectorAll('thead th');
+        allThs.forEach(h => {
+            h.style.width = h.getBoundingClientRect().width + 'px';
+        });
+        table.style.tableLayout = 'fixed';
+        
+        handle.classList.add('active');
+        document.body.classList.add('dt-resizing');
+        
+        // Track if mouse actually moved (to distinguish from click)
+        this._resizing = true;
+
+        const onMouseMove = (ev) => {
+            const diff = ev.pageX - startX;
+            const newWidth = Math.max(50, startWidth + diff);
+            th.style.width = newWidth + 'px';
+        };
+
+        const onMouseUp = () => {
+            handle.classList.remove('active');
+            document.body.classList.remove('dt-resizing');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            // Brief delay before clearing flag so the click event on th is suppressed
+            setTimeout(() => { this._resizing = false; }, 50);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }
+
+    clearSelection() {
+        this.selectedIds.clear();
+        this.renderBody();
+        this.updateBulkActions();
+    }
+
+    toggleColumnMenu(event) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById(`${this.container.id}-col-menu`);
+        menu.classList.toggle('hidden');
+        
+        // Close on click outside
+        if (!menu.classList.contains('hidden')) {
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+        }
+    }
+
+    async deleteRow(id) {
+        if (!confirm('Delete this row?')) return;
+        if (this.config.onDelete) {
+            await this.config.onDelete(id);
+            this.config.data = this.config.data.filter(r => r[this.config.idKey] !== id);
+            this.selectedIds.delete(id);
+            this.renderBody();
+            this.updateBulkActions();
+        }
+    }
+
+    showBulkTagModal() {
+        if (typeof showBulkEditModal === 'function') {
+            showBulkEditModal(Array.from(this.selectedIds));
+        }
+    }
+    
+    attachEventListeners() {
+        // Columns toggle button
+        const colBtn = this.container.querySelector('.columns-toggle-btn');
+        if (colBtn) {
+            colBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleColumnMenu(e);
+            });
+        }
+        
+        // Column checkboxes
+        this.container.querySelectorAll('.col-toggle-cb').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const colKey = e.target.dataset.col;
+                this.toggleColumn(colKey);
+            });
+        });
+    }
+}
+
+// Global event delegation for DataTable (backup)
+document.addEventListener('click', function(e) {
+    // Handle columns toggle button clicks
+    if (e.target.classList.contains('columns-toggle-btn')) {
+        e.stopPropagation();
+        const tableId = e.target.dataset.table;
+        const dt = window['dt_' + tableId];
+        if (dt) {
+            dt.toggleColumnMenu(e);
+        }
+    }
+});
+
+document.addEventListener('change', function(e) {
+    // Handle column checkbox changes
+    if (e.target.classList.contains('col-toggle-cb')) {
+        const tableId = e.target.dataset.table;
+        const colKey = e.target.dataset.col;
+        const dt = window['dt_' + tableId];
+        if (dt) {
+            dt.toggleColumn(colKey);
+        }
+    }
+    
+    // Handle row select checkbox changes
+    if (e.target.classList.contains('row-select-cb')) {
+        const tableId = e.target.dataset.table;
+        const rowId = e.target.dataset.id;
+        const dt = window['dt_' + tableId];
+        if (dt) {
+            dt.toggleSelect(rowId);
+        }
+    }
+});
+
+document.addEventListener('click', function(e) {
+    // Handle row delete button clicks
+    if (e.target.classList.contains('row-delete-btn')) {
+        e.stopPropagation();
+        const tableId = e.target.dataset.table;
+        const rowId = e.target.dataset.id;
+        const dt = window['dt_' + tableId];
+        if (dt) {
+            dt.deleteRow(rowId);
+        }
+    }
+}, true);
+</script>
