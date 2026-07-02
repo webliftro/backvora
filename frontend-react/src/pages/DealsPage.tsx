@@ -1,9 +1,10 @@
 import { Handshake, DollarSign, CheckCircle, TrendingUp } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 
 export default function DealsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Deal Tracker</h1>
+      <PageHeader title="Deal Tracker" />
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <p className="text-gray-400 mb-4">Deal tracking coming soon...</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

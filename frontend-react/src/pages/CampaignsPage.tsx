@@ -117,14 +117,14 @@ export default function CampaignsPage() {
     }
   }
 
-  const ic = "px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-pink-500";
+  const ic = "w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Target className="w-6 h-6 text-pink-500" />
+          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+            <Target className="w-5 h-5 text-pink-500" />
             Campaigns
           </h1>
           <p className="text-gray-400 text-sm mt-1">Manage your link building campaigns</p>
@@ -169,7 +169,7 @@ export default function CampaignsPage() {
                   <h3 className="font-semibold text-lg group-hover:text-pink-400 transition-colors truncate">
                     {campaign.name}
                   </h3>
-                  <p className="text-sm text-gray-400 truncate">{campaign.target_site}</p>
+                  <p className="font-mono text-[13px] text-gray-400 truncate">{campaign.target_site}</p>
                 </div>
                 <div className="flex items-center gap-1.5 ml-2">
                   {campaign.mode === 'auto' ? (
@@ -430,9 +430,9 @@ export default function CampaignsPage() {
                 <label className="block text-sm text-gray-400 mb-2">Link Velocity</label>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-400">Build</span>
-                  <input type="number" min="1" value={formData.velocity_count} onChange={e => setFormData({ ...formData, velocity_count: e.target.value })} className="w-16 px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
+                  <input type="number" min="1" value={formData.velocity_count} onChange={e => setFormData({ ...formData, velocity_count: e.target.value })} className="w-16 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
                   <span className="text-sm text-gray-400">link(s) every</span>
-                  <input type="number" min="1" value={formData.velocity_period_days} onChange={e => setFormData({ ...formData, velocity_period_days: e.target.value })} className="w-16 px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
+                  <input type="number" min="1" value={formData.velocity_period_days} onChange={e => setFormData({ ...formData, velocity_period_days: e.target.value })} className="w-16 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
                   <span className="text-sm text-gray-400">days</span>
                 </div>
               </div>
@@ -458,7 +458,7 @@ export default function CampaignsPage() {
                 {formData.schedule_enabled && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-400">Check every</span>
-                    <input type="number" min="1" value={formData.schedule_interval_hours} onChange={e => setFormData({ ...formData, schedule_interval_hours: e.target.value })} className="w-16 px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
+                    <input type="number" min="1" value={formData.schedule_interval_hours} onChange={e => setFormData({ ...formData, schedule_interval_hours: e.target.value })} className="w-16 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500 text-center" />
                     <span className="text-sm text-gray-400">hours</span>
                   </div>
                 )}

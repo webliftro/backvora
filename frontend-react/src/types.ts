@@ -3,7 +3,8 @@ export interface Domain {
   referring_domains: number | null; backlinks_count: number | null; is_competitor: boolean;
   is_adult: boolean; category: string | null; tags: string | null; link_types: string[];
   status: string; notes: string | null; owner: string | null; email: string | null;
-  telegram: string | null; created_at: string | null; updated_at: string | null;
+  telegram: string | null; language?: string | null; niche_tags?: string | null;
+  created_at: string | null; updated_at: string | null;
   backlinks: BacklinkGroup[]; backlink_url: string | null; backlink_target: string | null;
   backlink_anchor: string | null; backlink_count: number; link_prices: LinkPrice[];
   contacts_count?: number; has_contact_info?: boolean; has_primary_contact?: boolean; has_email?: boolean; 

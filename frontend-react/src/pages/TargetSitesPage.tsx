@@ -39,7 +39,7 @@ export function TargetSitesListPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Globe className="w-6 h-6 text-pink-500" /> Target Sites</h1>
+        <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2"><Globe className="w-5 h-5 text-pink-500" /> Target Sites</h1>
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium self-start sm:self-auto">
           <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Site</span><span className="sm:hidden">Add</span>
         </button>
@@ -58,7 +58,7 @@ export function TargetSitesListPage() {
           {sites.map(s => (
             <Link key={s.id} to={`/target-sites/${s.id}`} className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-5 hover:border-pink-500 transition-colors block">
               <h3 className="text-lg font-semibold text-pink-400">{s.name}</h3>
-              <p className="text-gray-400 text-sm">{s.domain}</p>
+              <p className="font-mono text-[13px] text-gray-400">{s.domain}</p>
               <div className="flex gap-4 mt-3 text-sm text-gray-400">
                 <span>{s.url_count} URLs</span>
                 <span>{s.anchor_count} anchors</span>
@@ -86,17 +86,17 @@ export function TargetSitesListPage() {
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1">Domain</label>
-            <input value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} placeholder="camhours.com" className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded" required />
+            <input value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} placeholder="camhours.com" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" required />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Brand Name</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="CamHours" className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded" required />
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="CamHours" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" required />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Brand Variations <span className="text-gray-600">(comma-separated)</span></label>
-            <input value={form.brand_variations} onChange={e => setForm(f => ({ ...f, brand_variations: e.target.value }))} placeholder="Cam Hours, cam hours, CAMHOURS, CH" className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded" />
+            <input value={form.brand_variations} onChange={e => setForm(f => ({ ...f, brand_variations: e.target.value }))} placeholder="Cam Hours, cam hours, CAMHOURS, CH" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" />
           </div>
-          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded font-medium">Create</button>
+          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Create</button>
         </form>
       </Modal>
     </div>
@@ -226,14 +226,14 @@ export function TargetSiteDetailPage() {
       {/* Header */}
       <div className="flex flex-col gap-3">
         <div className="flex items-start gap-3">
-          <button onClick={() => navigate('/target-sites')} className="p-2 hover:bg-gray-700 rounded shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+          <button onClick={() => navigate('/target-sites')} className="p-2 hover:bg-gray-700 rounded-lg shrink-0" aria-label="Back to target sites"><ArrowLeft className="w-5 h-5" /></button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold truncate">{site.name}</h1>
-            <p className="text-gray-400 text-sm truncate">{site.domain}</p>
+            <h1 className="text-xl font-semibold tracking-tight truncate">{site.name}</h1>
+            <p className="font-mono text-[13px] text-gray-400 truncate">{site.domain}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {editingVariations ? (
                 <>
-                  <input value={variationsText} onChange={e => setVariationsText(e.target.value)} placeholder="Cam Hours, cam hours, CH" className="px-2 py-0.5 bg-gray-900 border border-gray-600 rounded text-xs w-full sm:w-64" />
+                  <input value={variationsText} onChange={e => setVariationsText(e.target.value)} placeholder="Cam Hours, cam hours, CH" className="px-2 py-0.5 bg-gray-700 border border-gray-600 rounded-lg text-xs w-full sm:w-64" />
                   <button onClick={async () => {
                     await api.updateTargetSite(id!, { brand_variations: variationsText });
                     toast('Variations saved');
@@ -245,7 +245,7 @@ export function TargetSiteDetailPage() {
               ) : (
                 <>
                   <span className="text-xs text-gray-500 truncate">Variations: {site.brand_variations || 'none'}</span>
-                  <button onClick={() => setEditingVariations(true)} className="text-gray-500 hover:text-pink-400 shrink-0"><Edit2 className="w-3 h-3" /></button>
+                  <button onClick={() => setEditingVariations(true)} className="text-gray-500 hover:text-pink-400 shrink-0" aria-label="Edit brand variations"><Edit2 className="w-3 h-3" /></button>
                 </>
               )}
             </div>
@@ -276,7 +276,7 @@ export function TargetSiteDetailPage() {
                 <span className="text-gray-500 text-xs">(used {suggestion.suggestion.times_used}x)</span>
               </div>
             </div>
-            <button onClick={() => setSuggestion(null)} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+            <button onClick={() => setSuggestion(null)} className="text-gray-500 hover:text-white" aria-label="Dismiss suggestion"><X className="w-4 h-4" /></button>
           </div>
           {suggestion.distribution && (
             <div className="flex gap-4 mt-2 text-xs text-gray-400">
@@ -333,7 +333,7 @@ export function TargetSiteDetailPage() {
                   type="number"
                   value={(distForm as any)[d.key]}
                   onChange={e => setDistForm(f => ({ ...f, [d.key]: +e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-center text-sm"
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded-lg text-center text-sm"
                   min={0} max={100}
                 />
               ) : (
@@ -363,14 +363,14 @@ export function TargetSiteDetailPage() {
         {site.urls?.length === 0 ? (
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
             <p className="text-gray-500 mb-3">No target URLs yet. Use bulk import to add URLs and keywords.</p>
-            <button onClick={() => setBulkModal(true)} className="px-4 py-2 bg-pink-600 rounded text-sm">Bulk Import</button>
+            <button onClick={() => setBulkModal(true)} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Bulk Import</button>
           </div>
         ) : (
           site.urls?.map((u: any) => (
             <div key={u.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <a href={u.url} target="_blank" rel="noopener" className="text-pink-400 hover:underline text-sm font-medium">{u.url}</a>
+                  <a href={u.url} target="_blank" rel="noopener" className="font-mono text-[13px] text-pink-400 hover:underline font-medium">{u.url}</a>
                   {u.description && <span className="text-gray-500 text-xs">({u.description})</span>}
                 </div>
                 <div className="flex items-center gap-2">
@@ -468,7 +468,7 @@ export function TargetSiteDetailPage() {
             onChange={e => setBulkText(e.target.value)}
             rows={10}
             placeholder={`https://${site.domain} | Best {brand}, {domain}\nhttps://${site.domain}/girls | cam girls, live {brand} girls\nhttps://${site.domain}/couples`}
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-sm font-mono"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm font-mono"
           />
 
           {/* Preview */}
@@ -486,7 +486,7 @@ export function TargetSiteDetailPage() {
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">{bulkText.split('\n').filter(l => l.trim()).length} entries</span>
-            <button onClick={handleBulkImport} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded font-medium">Import</button>
+            <button onClick={handleBulkImport} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Import</button>
           </div>
         </div>
       </Modal>
@@ -496,11 +496,11 @@ export function TargetSiteDetailPage() {
         <form onSubmit={handleAddAnchor} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1">Anchor Text</label>
-            <input value={anchorForm.text} onChange={e => setAnchorForm(f => ({ ...f, text: e.target.value }))} className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded" required />
+            <input value={anchorForm.text} onChange={e => setAnchorForm(f => ({ ...f, text: e.target.value }))} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" required />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Type</label>
-            <select value={anchorForm.anchor_type} onChange={e => setAnchorForm(f => ({ ...f, anchor_type: e.target.value }))} className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded">
+            <select value={anchorForm.anchor_type} onChange={e => setAnchorForm(f => ({ ...f, anchor_type: e.target.value }))} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
               <option value="brand">Brand</option>
               <option value="topical">Topical</option>
               <option value="generic">Generic</option>
@@ -508,7 +508,7 @@ export function TargetSiteDetailPage() {
               <option value="url">URL</option>
             </select>
           </div>
-          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded font-medium">Add</button>
+          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Add</button>
         </form>
       </Modal>
 
@@ -518,11 +518,11 @@ export function TargetSiteDetailPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Anchor Text</label>
-              <input value={editAnchor.text} onChange={e => setEditAnchor((a: any) => ({ ...a, text: e.target.value }))} className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded" />
+              <input value={editAnchor.text} onChange={e => setEditAnchor((a: any) => ({ ...a, text: e.target.value }))} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" />
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Type</label>
-              <select value={editAnchor.anchor_type} onChange={e => setEditAnchor((a: any) => ({ ...a, anchor_type: e.target.value }))} className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded">
+              <select value={editAnchor.anchor_type} onChange={e => setEditAnchor((a: any) => ({ ...a, anchor_type: e.target.value }))} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                 <option value="brand">Brand</option>
                 <option value="topical">Topical</option>
                 <option value="generic">Generic</option>
@@ -531,14 +531,14 @@ export function TargetSiteDetailPage() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleUpdateAnchor} className="flex-1 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded font-medium">Save</button>
+              <button onClick={handleUpdateAnchor} className="flex-1 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Save</button>
               <button onClick={async () => {
                 if (!confirm('Delete this anchor?')) return;
                 await api.deleteAnchor(editAnchor.id);
                 toast('Anchor deleted');
                 setEditAnchor(null);
                 load();
-              }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded font-medium">Delete</button>
+              }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium">Delete</button>
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
+import { PageHeader } from '../components/ui';
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -68,10 +69,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <PageHeader title="Dashboard" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ label, value, color, link }) => {
-          const inner = (<><div className="text-sm text-gray-400">{label}</div><div className={`text-3xl font-bold ${color}`}>{value}</div></>);
+          const inner = (<><div className="text-sm text-gray-400">{label}</div><div className={`text-2xl font-semibold tabular-nums ${color}`}>{value}</div></>);
           return link ? (
             <Link key={label} to={link} className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700 hover:border-pink-500 transition-colors block">{inner}</Link>
           ) : (
@@ -85,7 +86,7 @@ export default function DashboardPage() {
           {contactsStats.map(({ label, value, color }) => (
             <div key={label} className="bg-gray-700/50 rounded-lg p-3 sm:p-4">
               <div className="text-xs text-gray-400 mb-1">{label}</div>
-              <div className={`text-xl sm:text-2xl font-bold ${color}`}>{value}</div>
+              <div className={`text-lg sm:text-xl font-semibold tabular-nums ${color}`}>{value}</div>
             </div>
           ))}
         </div>

@@ -1,9 +1,10 @@
 import { Mail, Clock, Send, CalendarCheck } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 
 export default function OutreachPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Outreach Campaigns</h1>
+      <PageHeader title="Outreach Campaigns" />
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <p className="text-gray-400 mb-4">Outreach management coming soon...</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

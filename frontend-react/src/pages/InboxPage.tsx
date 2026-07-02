@@ -205,8 +205,8 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3">
-          <Mail className="w-6 h-6 text-pink-500" />
-          <h1 className="text-2xl font-bold">Inbox</h1>
+          <Mail className="w-5 h-5 text-pink-500" />
+          <h1 className="text-xl font-semibold tracking-tight">Inbox</h1>
           <span className="text-sm text-gray-400">
             ({emails.filter(e => !e.is_read).length} unread)
           </span>
@@ -216,7 +216,7 @@ export default function InboxPage() {
           <button
             onClick={handleScanReplies}
             disabled={scanning}
-            className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md flex items-center gap-2 transition-colors disabled:opacity-50 text-sm"
+            className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 text-sm"
             title="Scan unread replies and extract contact info, prices, and payment methods using AI"
           >
             <Sparkles className={`w-4 h-4 ${scanning ? 'animate-pulse' : ''}`} />
@@ -225,14 +225,15 @@ export default function InboxPage() {
           </button>
           <button
             onClick={() => setComposeOpen(true)}
-            className="px-3 sm:px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-md flex items-center gap-2 transition-colors text-sm"
+            aria-label="Compose email"
+            className="px-3 sm:px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm"
           >
             <Send className="w-4 h-4" />
             <span className="hidden sm:inline">Compose</span>
           </button>
           <button
             onClick={loadEmails}
-            className="p-2 hover:bg-gray-700 rounded-md transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -249,7 +250,7 @@ export default function InboxPage() {
             placeholder="Search emails..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm"
           />
         </div>
         
@@ -307,7 +308,7 @@ export default function InboxPage() {
                     } ${!email.is_read ? 'border-l-2 border-pink-500' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="font-medium text-sm truncate flex-1">
+                      <div className="font-mono text-[13px] font-medium truncate flex-1">
                         {email.from_addr}
                       </div>
                       <div className="text-xs text-gray-500 shrink-0">
@@ -355,11 +356,11 @@ export default function InboxPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
                     <span className="text-gray-500 w-16 shrink-0">From:</span>
-                    <span className="text-gray-300">{selectedEmail.from_addr}</span>
+                    <span className="font-mono text-[13px] text-gray-300">{selectedEmail.from_addr}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-gray-500 w-16 shrink-0">To:</span>
-                    <span className="text-gray-300">{selectedEmail.to_addr}</span>
+                    <span className="font-mono text-[13px] text-gray-300">{selectedEmail.to_addr}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-gray-500 w-16 shrink-0">Date:</span>
@@ -382,7 +383,7 @@ export default function InboxPage() {
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setShowReply(!showReply)}
-                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-md flex items-center gap-2 transition-colors text-sm"
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm"
                   >
                     <Reply className="w-4 h-4" />
                     Reply
@@ -403,6 +404,7 @@ export default function InboxPage() {
                     <button
                       onClick={() => setShowReply(false)}
                       className="text-gray-500 hover:text-gray-300"
+                      aria-label="Close reply"
                     >
                       <XIcon className="w-4 h-4" />
                     </button>
@@ -413,20 +415,20 @@ export default function InboxPage() {
                     onChange={(e) => setReplyBody(e.target.value)}
                     placeholder="Type your reply..."
                     rows={6}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-md p-3 focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
                   />
                   
                   <div className="mt-3 flex justify-end gap-2">
                     <button
                       onClick={() => setShowReply(false)}
-                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors text-sm"
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleReply}
                       disabled={replying || !replyBody.trim()}
-                      className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-md flex items-center gap-2 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {replying ? (
                         <>
@@ -458,7 +460,7 @@ export default function InboxPage() {
               value={composeTo}
               onChange={(e) => setComposeTo(e.target.value)}
               placeholder="recipient@example.com"
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             />
           </div>
           
@@ -469,7 +471,7 @@ export default function InboxPage() {
               value={composeSubject}
               onChange={(e) => setComposeSubject(e.target.value)}
               placeholder="Email subject"
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             />
           </div>
           
@@ -480,7 +482,7 @@ export default function InboxPage() {
               onChange={(e) => setComposeBody(e.target.value)}
               placeholder="Type your message..."
               rows={10}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
             />
           </div>
           
@@ -494,7 +496,7 @@ export default function InboxPage() {
             <button
               onClick={handleCompose}
               disabled={composing || !composeTo.trim() || !composeSubject.trim() || !composeBody.trim()}
-              className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-md flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {composing ? (
                 <>

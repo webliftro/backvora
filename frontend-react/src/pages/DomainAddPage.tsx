@@ -113,13 +113,13 @@ export default function DomainAddPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link to="/domains" className="text-gray-400 hover:text-white flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> Domains</Link>
-        <h1 className="text-2xl font-bold">Add Domain</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Add Domain</h1>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <label className="block text-sm text-gray-400 mb-1">Domain *</label>
           <input type="text" value={form.domain} onChange={e => { setForm({ ...form, domain: e.target.value }); checkDupe(e.target.value); }}
-            placeholder="example.com" required autoFocus className={`${ic} !text-lg`} />
+            placeholder="example.com" required autoFocus className={`${ic} !text-lg font-mono`} />
           {dupeMatch && (
             <div className="mt-2 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-sm text-yellow-400">
               ⚠️ Already exists! <Link to={`/domains/${dupeMatch.id}`} className="underline text-pink-400">View →</Link>

@@ -1,28 +1,143 @@
 @import "tailwindcss";
 @source "./**/*.{ts,tsx}";
 
+/*
+ * BackVora theme — dark-first, rose-cast neutrals, refined raspberry accent.
+ *
+ * Every gray, pink, and status-color utility in the pages resolves through
+ * these tokens, so the values below restyle the whole app. Lightness ordering of
+ * each ramp matches Tailwind's defaults — don't reorder shades.
+ * Contrast floors (WCAG AA): text tokens ≥4.5:1 on gray-800 surfaces;
+ * white ≥4.5:1 on *-600 button fills. Re-check before darkening anything.
+ */
 @theme {
-  --color-gray-50:  #fafafa;
-  --color-gray-100: #f5f5f5;
-  --color-gray-200: #e5e5e5;
-  --color-gray-300: #d4d4d4;
-  --color-gray-400: #a3a3a3;
-  --color-gray-500: #737373;
-  --color-gray-600: #525252;
-  --color-gray-700: #333333;
-  --color-gray-800: #1a1a1a;
-  --color-gray-900: #0a0a0a;
-  --color-gray-950: #050505;
+  /* Neutrals — hue ~285°, low saturation so the pink accent owns the room */
+  --color-gray-50:  #faf8fb;
+  --color-gray-100: #f0edf3;
+  --color-gray-200: #ddd7e2;
+  --color-gray-300: #b9b0c2;
+  --color-gray-400: #9d93a9;
+  --color-gray-500: #8a7f96;
+  --color-gray-600: #4a4256;
+  --color-gray-700: #292230;
+  --color-gray-800: #171220;
+  --color-gray-900: #100c16;
+  --color-gray-950: #0b0811;
+
+  /* Brand — raspberry rose, deep enough to read premium, not neon */
+  --color-pink-300: #f2a9c4;
+  --color-pink-400: #ed7fa9;
+  --color-pink-500: #e25a8f;
+  --color-pink-600: #c43d74;
+  --color-pink-700: #a62f61;
+  --color-pink-800: #832450;
+  --color-pink-900: #571837;
+  --color-pink-950: #330e20;
+
+  /* Status ramps — restrained, dark-UI tuned */
+  --color-green-300: #86e0b0;
+  --color-green-400: #4cc98a;
+  --color-green-500: #34b478;
+  --color-green-600: #1f8f63;
+  --color-green-700: #197a54;
+  --color-green-900: #0d3d2b;
+
+  --color-emerald-300: #7fe3c3;
+  --color-emerald-400: #43cfa0;
+  --color-emerald-500: #2bb388;
+  --color-emerald-600: #159873;
+  --color-emerald-700: #10805f;
+  --color-emerald-900: #0b3d2e;
+
+  --color-red-300: #f0a0a6;
+  --color-red-400: #e96f77;
+  --color-red-600: #be3f4b;
+  --color-red-700: #9e3340;
+  --color-red-900: #4d1a21;
+
+  --color-yellow-300: #f2d48a;
+  --color-yellow-400: #e5b85c;
+  --color-yellow-500: #d9a441;
+  --color-yellow-600: #9a6b22;
+  --color-yellow-700: #7e5619;
+  --color-yellow-900: #3f2a0c;
+
+  --color-amber-400: #e5b85c;
+  --color-amber-600: #9a6b22;
+  --color-amber-700: #7e5619;
+  --color-amber-900: #3f2a0c;
+
+  --color-blue-300: #9ec1f0;
+  --color-blue-400: #6fa3e8;
+  --color-blue-600: #3568c4;
+  --color-blue-700: #2b56a4;
+  --color-blue-900: #1a2f52;
+
+  --color-purple-300: #c9afea;
+  --color-purple-400: #ac85de;
+  --color-purple-600: #7d4fbe;
+  --color-purple-700: #68409f;
+  --color-purple-900: #33204f;
+
+  --color-orange-400: #e89158;
+  --color-orange-600: #ba6432;
+  --color-orange-700: #96501f;
+
+  --color-teal-400: #4bc2c5;
+  --color-teal-600: #22898c;
+  --color-teal-700: #1b6f72;
+
+  /* Semantic tokens — the vocabulary new components speak */
+  --color-bg:        var(--color-gray-900); /* page background       */
+  --color-surface:   var(--color-gray-800); /* raised card / panel   */
+  --color-surface-2: var(--color-gray-700); /* inputs, hover rows    */
+  --color-line:      var(--color-gray-700); /* hairline borders      */
+  --color-ink:       var(--color-gray-100); /* primary text          */
+  --color-ink-dim:   var(--color-gray-400); /* secondary text        */
+  --color-ink-mute:  var(--color-gray-500); /* captions, timestamps  */
+  --color-brand:        var(--color-pink-600); /* primary action fill  */
+  --color-brand-hover:  var(--color-pink-700);
+  --color-brand-active: var(--color-pink-800);
+  --color-brand-bright: var(--color-pink-400); /* accent text / links  */
+  --color-success: var(--color-green-600);
+  --color-warning: var(--color-yellow-600);
+  --color-danger:  var(--color-red-600);
+  --color-info:    var(--color-teal-600);
+  --color-ring:    var(--color-pink-500);
 }
 
 body {
-  background-color: var(--color-gray-900);
-  color: var(--color-gray-100);
+  background-color: var(--color-bg);
+  color: var(--color-ink);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Keyboard focus is always visible; utilities like focus:border-pink-500
+   still layer their own treatment on top for text fields. */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Data reads like data: metrics and table figures align into columns */
+table { font-variant-numeric: tabular-nums; }
+
+input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand); }
+
+::selection { background: color-mix(in srgb, var(--color-brand) 40%, transparent); }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #0a0a0a; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #525252; }
+::-webkit-scrollbar-track { background: var(--color-gray-950); }
+::-webkit-scrollbar-thumb { background: var(--color-gray-700); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-gray-600); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

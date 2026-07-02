@@ -16,3 +16,4 @@ data/*.db
 *.tsbuildinfo
 relay.config.local
 .flow/
+.gstack/

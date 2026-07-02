@@ -11,3 +11,5 @@
 > - **Advisory, not gospel** — verify a lesson still holds before relying on it; a wrong line is
 >   cheap to ignore. Prune stale lines by editing this file directly (humans prune; the tool appends).
 
+- 2026-07-03: Gates can be red for config reasons, not code: 'tsc -b --noEmit' died on TS6310 (composite tsconfig reference) without checking any source, and GATE_tests uses 'python' which doesn't exist in the drive env (only python3) — always run the baseline and read WHY a gate is red before building on it.
+- 2026-07-03: BackVora frontend: POST /api/v1/domains/bulk-import expects a bare JSON array, but api.ts bulkImportDomains sends {domains, is_competitor} → 422; the Domains text-import modal is broken on master (pre-existing, observed 2026-07-03).

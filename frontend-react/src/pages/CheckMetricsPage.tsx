@@ -62,8 +62,8 @@ export default function CheckMetricsPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2 sm:gap-3">
-            <BarChart3 className="w-6 sm:w-7 h-6 sm:h-7 text-pink-500" />
+          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 sm:gap-3">
+            <BarChart3 className="w-5 h-5 text-pink-500" />
             Check Metrics
           </h1>
           <p className="text-gray-400 mt-1 text-sm">Look up Ahrefs metrics for any domain before adding it</p>
@@ -71,7 +71,7 @@ export default function CheckMetricsPage() {
       </div>
 
       {/* Search */}
-      <div className="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6 border border-gray-700">
+      <div className="bg-gray-800 rounded-lg p-4 sm:p-6 mb-6 border border-gray-700">
         <form onSubmit={e => { e.preventDefault(); check() }} className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -102,11 +102,11 @@ export default function CheckMetricsPage() {
 
       {/* Results */}
       {metrics && (
-        <div className="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6 border border-gray-700">
+        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 mb-6 border border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2 truncate">
               <Globe className="w-5 h-5 text-gray-400 shrink-0" />
-              <span className="truncate">{metrics.domain}</span>
+              <span className="truncate font-mono">{metrics.domain}</span>
             </h2>
             <button
               onClick={() => navigate('/domains/new', { state: { domain: metrics.domain, metrics } })}
@@ -118,29 +118,29 @@ export default function CheckMetricsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1">Domain Rating</div>
-              <div className={`text-2xl font-bold ${ratingColor(metrics.domain_rating)}`}>
+              <div className={`text-2xl font-semibold tabular-nums ${ratingColor(metrics.domain_rating)}`}>
                 {metrics.domain_rating ?? '-'}
               </div>
             </div>
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1">Ahrefs Rank</div>
-              <div className="text-2xl font-bold text-white">{fmt(metrics.ahrefs_rank)}</div>
+              <div className="text-2xl font-semibold tabular-nums text-white">{fmt(metrics.ahrefs_rank)}</div>
             </div>
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Traffic</div>
-              <div className="text-2xl font-bold text-white">{fmt(metrics.organic_traffic)}</div>
+              <div className="text-2xl font-semibold tabular-nums text-white">{fmt(metrics.organic_traffic)}</div>
             </div>
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1">Keywords</div>
-              <div className="text-2xl font-bold text-white">{fmt(metrics.organic_keywords)}</div>
+              <div className="text-2xl font-semibold tabular-nums text-white">{fmt(metrics.organic_keywords)}</div>
             </div>
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Link2 className="w-3 h-3" /> Ref. Domains</div>
-              <div className="text-2xl font-bold text-white">{fmt(metrics.referring_domains)}</div>
+              <div className="text-2xl font-semibold tabular-nums text-white">{fmt(metrics.referring_domains)}</div>
             </div>
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="text-xs text-gray-400 mb-1">Backlinks</div>
-              <div className="text-2xl font-bold text-white">{fmt(metrics.backlinks_count)}</div>
+              <div className="text-2xl font-semibold tabular-nums text-white">{fmt(metrics.backlinks_count)}</div>
             </div>
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function CheckMetricsPage() {
 
       {/* History */}
       {history.length > 1 && (
-        <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
           <h2 className="text-lg font-semibold mb-4">Recent Checks</h2>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full min-w-[600px]">
@@ -169,7 +169,7 @@ export default function CheckMetricsPage() {
                   className="border-b border-gray-700/50 text-sm cursor-pointer hover:bg-gray-700/30 transition-colors"
                   onClick={() => { setDomain(m.domain); setMetrics(m) }}
                 >
-                  <td className="py-2 font-medium">{m.domain}</td>
+                  <td className="py-2 font-mono text-[13px] font-medium">{m.domain}</td>
                   <td className={`py-2 text-right ${ratingColor(m.domain_rating)}`}>{m.domain_rating ?? '-'}</td>
                   <td className="py-2 text-right">{fmt(m.organic_traffic)}</td>
                   <td className="py-2 text-right">{fmt(m.organic_keywords)}</td>

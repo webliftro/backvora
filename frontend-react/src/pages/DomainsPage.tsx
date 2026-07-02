@@ -12,6 +12,7 @@ import {
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { PageHeader } from '../components/ui';
 import type { Domain } from '../types';
 import { DOMAIN_STATUSES } from '../types';
 
@@ -154,7 +155,7 @@ export default function DomainsPage() {
       cell: ({ row }) => <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />,
     }),
     col.accessor('domain', { header: 'Domain', size: 200,
-      cell: i => <div className="flex items-center gap-1"><Link to={`/domains/${i.row.original.id}`} className="text-pink-400 hover:underline truncate">{i.getValue()}</Link><a href={`https://${i.getValue()}`} target="_blank" rel="noopener" className="text-gray-500 hover:text-gray-300 shrink-0"><ExternalLink className="w-3 h-3" /></a></div>,
+      cell: i => <div className="flex items-center gap-1"><Link to={`/domains/${i.row.original.id}`} className="font-mono text-[13px] text-pink-400 hover:underline truncate">{i.getValue()}</Link><a href={`https://${i.getValue()}`} target="_blank" rel="noopener" className="text-gray-500 hover:text-gray-300 shrink-0" title={`Open ${i.getValue()}`}><ExternalLink className="w-3 h-3" /></a></div>,
     }),
     col.accessor('organic_traffic', { header: 'Traffic', size: 100, cell: i => i.getValue()?.toLocaleString() ?? '-' }),
     col.accessor('domain_rating', { header: 'DR', size: 60, cell: i => i.getValue() ?? '-' }),
@@ -336,25 +337,25 @@ export default function DomainsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h1 className="text-2xl font-bold">Domains</h1>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={openPresets} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
+      <PageHeader
+        title="Domains"
+        actions={<>
+          <button onClick={openPresets} title="Presets" className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
             <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Presets</span>
           </button>
           <button onClick={bulkGrabAllMissing} disabled={bulkGrabbing} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50">
-            <Search className={`w-4 h-4 ${bulkGrabbing ? 'animate-spin' : ''}`} /> 
+            <Search className={`w-4 h-4 ${bulkGrabbing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{bulkGrabbing ? 'Grabbing...' : 'Grab All Missing'}</span>
             <span className="sm:hidden">{bulkGrabbing ? 'Grab...' : 'Grab'}</span>
           </button>
-          <button onClick={() => setImportOpen(true)} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
+          <button onClick={() => setImportOpen(true)} title="Import" className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
             <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Import</span>
           </button>
           <Link to="/domains/new" className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Domain</span><span className="sm:hidden">Add</span>
           </Link>
-        </div>
-      </div>
+        </>}
+      />
 
       {bulkGrabProgress && (
         <div className="p-3 bg-green-900/30 border border-green-700 rounded-lg flex items-center gap-3 text-sm">
@@ -364,12 +365,12 @@ export default function DomainsPage() {
 
       <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
         <input type="text" placeholder="Search domain, tags, notes..." value={search} onChange={e => setSearch(e.target.value)} className={`${ic} w-full sm:w-48 focus:outline-none focus:border-pink-500`} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">All Status</option>{DOMAIN_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
-        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
-        <select value={targetFilter} onChange={e => setTargetFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">All Targets</option>{targets.map(t => <option key={t}>{t}</option>)}</select>
-        <select value={hasBacklink} onChange={e => setHasBacklink(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">Has Backlink?</option><option value="yes">Yes</option><option value="no">No</option></select>
-        <select value={hasContacts} onChange={e => setHasContacts(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">Has Contacts?</option><option value="yes">Yes</option><option value="no">No</option></select>
-        <select value={linkTypeFilter} onChange={e => setLinkTypeFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-0`}><option value="">All Link Types</option>{availableLinkTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Status</option>{DOMAIN_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
+        <select value={targetFilter} onChange={e => setTargetFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Targets</option>{targets.map(t => <option key={t}>{t}</option>)}</select>
+        <select value={hasBacklink} onChange={e => setHasBacklink(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Backlink?</option><option value="yes">Yes</option><option value="no">No</option></select>
+        <select value={hasContacts} onChange={e => setHasContacts(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Contacts?</option><option value="yes">Yes</option><option value="no">No</option></select>
+        <select value={linkTypeFilter} onChange={e => setLinkTypeFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Link Types</option>{availableLinkTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
         <button onClick={clearFilters} className="px-3 py-2 text-gray-400 hover:text-white text-sm shrink-0">Clear</button>
       </div>
 
@@ -390,7 +391,7 @@ export default function DomainsPage() {
       {selIds.length > 0 && (
         <div className="p-3 bg-pink-900/30 border border-pink-700 rounded-lg flex flex-wrap items-center gap-2 sm:gap-4">
           <span className="text-sm">{selIds.length} selected</span>
-          <button onClick={bulkDelete} className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm flex items-center gap-1"><Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">Delete</span></button>
+          <button onClick={bulkDelete} aria-label="Delete selected domains" className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm flex items-center gap-1"><Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">Delete</span></button>
           <button onClick={() => setBulkOpen(true)} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm"><span className="hidden sm:inline">Category/Tags</span><span className="sm:hidden">Edit</span></button>
           <button
             disabled={bulkGrabbing}
@@ -400,7 +401,7 @@ export default function DomainsPage() {
               try {
                 const resp = await fetch('/api/v1/domains/selected-grab-contacts', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...(() => { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {}; })() },
+                  headers: { 'Content-Type': 'application/json', ...((): Record<string, string> => { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {}; })() },
                   body: JSON.stringify({ domain_ids: selIds }),
                 });
                 const reader = resp.body?.getReader();
@@ -473,13 +474,13 @@ export default function DomainsPage() {
           >
             Check Adult
           </button>
-          <button onClick={() => { setRowSelection({}); setBulkActionResult(null); }} className="px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm ml-auto">Clear</button>
+          <button onClick={() => { setRowSelection({}); setBulkActionResult(null); }} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm ml-auto">Clear</button>
         </div>
       )}
       {bulkActionResult && (
         <div className={`p-3 rounded-lg flex items-center justify-between ${bulkActionResult.ok ? 'bg-emerald-900/30 border border-emerald-700' : 'bg-red-900/30 border border-red-700'}`}>
           <span className="text-sm">{bulkActionResult.message}</span>
-          <button onClick={() => setBulkActionResult(null)} className="text-gray-400 hover:text-white ml-2"><XIcon className="w-4 h-4" /></button>
+          <button onClick={() => setBulkActionResult(null)} aria-label="Dismiss message" className="text-gray-400 hover:text-white ml-2"><XIcon className="w-4 h-4" /></button>
         </div>
       )}
 
@@ -487,7 +488,7 @@ export default function DomainsPage() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-3">
           <span className="text-sm text-gray-400">{filtered.length} rows</span>
           <div className="relative">
-            <button onClick={() => setColMenuOpen(v => !v)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Columns3 className="w-4 h-4" /> <span className="hidden sm:inline">Columns</span></button>
+            <button onClick={() => setColMenuOpen(v => !v)} aria-label="Manage columns" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Columns3 className="w-4 h-4" /> <span className="hidden sm:inline">Columns</span></button>
             {colMenuOpen && (
               <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 py-1 min-w-[160px] max-h-[300px] overflow-y-auto">
                 {table.getAllLeafColumns().filter(c => c.id !== 'select').map(c => (
@@ -507,7 +508,7 @@ export default function DomainsPage() {
               {table.getHeaderGroups().map(hg => (
                 <tr key={hg.id}>
                   {hg.headers.map(h => (
-                    <th key={h.id} className="px-3 py-3 text-left text-sm font-medium relative select-none" style={{ width: h.getSize() }}>
+                    <th key={h.id} className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-400 relative select-none" style={{ width: h.getSize() }}>
                       <div className={`flex items-center gap-1 ${h.column.getCanSort() ? 'cursor-pointer' : ''}`} onClick={h.column.getToggleSortingHandler()}>
                         {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                         {h.column.getIsSorted() === 'asc' ? <ChevronUp className="w-3 h-3" /> : h.column.getIsSorted() === 'desc' ? <ChevronDown className="w-3 h-3" /> : h.column.getCanSort() ? <ChevronsUpDown className="w-3 h-3 text-gray-500" /> : null}
@@ -515,7 +516,7 @@ export default function DomainsPage() {
                       {h.column.getCanResize() && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/50" />}
                     </th>
                   ))}
-                  <th className="px-3 py-3 w-20"></th>
+                  <th className="px-3 py-2.5 w-20"></th>
                 </tr>
               ))}
             </thead>
@@ -527,7 +528,7 @@ export default function DomainsPage() {
                   {r.getVisibleCells().map(c => <td key={c.id} className="px-3 py-2.5 text-sm" style={{ width: c.column.getSize() }}>{flexRender(c.column.columnDef.cell, c.getContext())}</td>)}
                   <td className="px-3 py-2.5 flex gap-2">
                     <button onClick={() => analyzeDomain(r.original.id)} disabled={analyzingIds.has(r.original.id)} title="Update metrics" className="text-gray-400 hover:text-pink-400 disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${analyzingIds.has(r.original.id) ? 'animate-spin' : ''}`} /></button>
-                    <button onClick={() => setDeleteConfirm({ ids: [r.original.id], label: r.original.domain })} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setDeleteConfirm({ ids: [r.original.id], label: r.original.domain })} title="Delete domain" className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
               ))}
@@ -544,8 +545,8 @@ export default function DomainsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <span className="text-sm text-gray-400">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-{Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filtered.length)} of {filtered.length}</span>
             <div className="flex gap-2">
-              <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><ArrowLeft className="w-3 h-3" /> <span className="hidden sm:inline">Prev</span></button>
-              <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><span className="hidden sm:inline">Next</span> <ArrowRight className="w-3 h-3" /></button>
+              <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous page" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><ArrowLeft className="w-3 h-3" /> <span className="hidden sm:inline">Prev</span></button>
+              <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} aria-label="Next page" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><span className="hidden sm:inline">Next</span> <ArrowRight className="w-3 h-3" /></button>
             </div>
           </div>
         </div>

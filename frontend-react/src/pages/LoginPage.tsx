@@ -33,11 +33,11 @@ export default function LoginPage() {
           <h2 className="text-lg font-semibold text-white text-center">Sign In</h2>
           {error && <div className="text-red-400 text-sm text-center">{error}</div>}
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
           <button type="submit" disabled={loading}
-            className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white rounded font-medium transition-colors">
+            className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors">
             {loading ? '...' : 'Sign In'}
           </button>
         </form>

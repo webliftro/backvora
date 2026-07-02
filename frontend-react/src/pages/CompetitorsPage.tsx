@@ -4,6 +4,7 @@ import { Plus, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { PageHeader, EmptyState } from '../components/ui';
 import type { Competitor } from '../types';
 
 export default function CompetitorsPage() {
@@ -53,17 +54,16 @@ export default function CompetitorsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h1 className="text-2xl font-bold">Competitors</h1>
-        <button onClick={() => { setModalOpen(true); setFetchResult(''); }} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1 self-start sm:self-auto">
-          <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Fetch Competitor Backlinks</span><span className="sm:hidden">Fetch</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Competitors"
+        actions={
+          <button onClick={() => { setModalOpen(true); setFetchResult(''); }} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Fetch Competitor Backlinks</span><span className="sm:hidden">Fetch</span>
+          </button>
+        }
+      />
       {loading ? <div className="text-gray-500">Loading...</div> : competitors.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400 text-lg mb-2">No competitors yet</p>
-          <p className="text-gray-500 text-sm mb-4">Fetch competitor backlinks to get started</p>
-        </div>
+        <EmptyState title="No competitors yet" hint="Fetch competitor backlinks to get started" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {competitors.map(c => (
@@ -79,7 +79,7 @@ export default function CompetitorsPage() {
               <Link to={`/domains?target=${encodeURIComponent(c.domain)}`} className="block">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="text-lg font-semibold">{c.domain}</h3>
+                  <h3 className="font-mono text-base font-semibold">{c.domain}</h3>
                   <a href={`https://${c.domain}`} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                     className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1"><ExternalLink className="w-3 h-3" /> visit</a>
                 </div>

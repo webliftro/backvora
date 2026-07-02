@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 
 export default function SettingsPage() {
   const { user, token } = useAuth();
@@ -75,19 +76,19 @@ export default function SettingsPage() {
     finally { setLoading(false); }
   };
 
-  const ic = "w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-pink-500";
+  const ic = "w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-pink-500";
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+      <PageHeader title="Settings" />
 
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <h2 className="text-lg font-semibold mb-1">Account</h2>
         <p className="text-gray-400 text-sm mb-4">{user?.email}</p>
       </div>
 
       {/* Outreach Templates */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Outreach Templates</h2>
           <button onClick={() => openEdit()} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm flex items-center gap-1"><Plus className="w-3 h-3" /> New</button>
@@ -122,8 +123,8 @@ export default function SettingsPage() {
                   <button onClick={() => toggleActive(t)} className={`px-2 py-1 rounded text-xs ${t.is_active ? 'bg-green-900/50 text-green-400' : 'bg-gray-600 text-gray-400'}`}>
                     {t.is_active ? 'Active' : 'Inactive'}
                   </button>
-                  <button onClick={() => openEdit(t)} className="text-gray-400 hover:text-white p-1"><Pencil className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => deleteTpl(t.id)} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => openEdit(t)} aria-label="Edit template" className="text-gray-400 hover:text-white p-1"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => deleteTpl(t.id)} aria-label="Delete template" className="text-red-400 hover:text-red-300 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             </div>
@@ -133,7 +134,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Change Password */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <h2 className="text-lg font-semibold mb-4">Change Password</h2>
         {message && (
           <div className={`mb-4 p-3 rounded text-sm ${message.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>{message.text}</div>
@@ -142,7 +143,7 @@ export default function SettingsPage() {
           <div><label className="block text-sm text-gray-400 mb-1">Current Password</label><input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required className={ic} /></div>
           <div><label className="block text-sm text-gray-400 mb-1">New Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className={ic} /></div>
           <div><label className="block text-sm text-gray-400 mb-1">Confirm New Password</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className={ic} /></div>
-          <button type="submit" disabled={loading} className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 rounded text-white font-medium transition-colors">{loading ? 'Changing...' : 'Change Password'}</button>
+          <button type="submit" disabled={loading} className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 rounded-lg text-white font-medium transition-colors">{loading ? 'Changing...' : 'Change Password'}</button>
         </form>
       </div>
     </div>

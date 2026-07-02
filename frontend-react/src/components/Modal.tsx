@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react'
+import { X } from 'lucide-react'
 
 interface ModalProps {
   open: boolean
@@ -19,13 +20,26 @@ export default function Modal({ open, onClose, title, children, maxWidth = 'max-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className={`bg-gray-800 rounded-lg p-4 sm:p-6 w-full ${maxWidth} border border-gray-700 max-h-[90vh] overflow-y-auto`}
+        role="dialog"
+        aria-label={title}
+        className={`bg-gray-800 rounded-lg w-full ${maxWidth} border border-gray-700 shadow-2xl shadow-black/40 max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold mb-4">{title}</h2>
-        {children}
+        <div className="flex items-start justify-between gap-3 px-4 sm:px-6 pt-4 sm:pt-5">
+          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-1 -mr-1 rounded-md text-gray-500 hover:text-gray-200 transition-colors"
+            aria-label="Close dialog"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6 pt-3">
+          {children}
+        </div>
       </div>
     </div>
   )

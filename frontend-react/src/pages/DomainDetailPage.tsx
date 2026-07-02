@@ -367,12 +367,12 @@ export default function DomainDetailPage() {
         <Link to="/domains" className="text-gray-400 hover:text-white flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> Domains</Link>
         {editDomain ? (
           <form onSubmit={async (e) => { e.preventDefault(); const v = editDomainVal.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''); if (!v) return; try { await api.updateDomain(id!, { domain: v }); toast('Domain updated'); setEditDomain(false); load(); } catch (err: any) { toast(err.message, 'error'); } }} className="flex items-center gap-2">
-            <input type="text" value={editDomainVal} onChange={e => setEditDomainVal(e.target.value)} autoFocus className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-2xl font-bold focus:outline-none focus:border-pink-500" />
+            <input type="text" value={editDomainVal} onChange={e => setEditDomainVal(e.target.value)} autoFocus className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-xl font-semibold font-mono focus:outline-none focus:border-pink-500" />
             <button type="submit" className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm">Save</button>
             <button type="button" onClick={() => setEditDomain(false)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">Cancel</button>
           </form>
         ) : (
-          <h1 className="text-2xl font-bold cursor-pointer hover:text-pink-400 transition-colors" onClick={() => { setEditDomainVal(d.domain); setEditDomain(true); }} title="Click to edit">{d.domain}</h1>
+          <h1 className="text-xl font-semibold tracking-tight font-mono cursor-pointer hover:text-pink-400 transition-colors" onClick={() => { setEditDomainVal(d.domain); setEditDomain(true); }} title="Click to edit">{d.domain}</h1>
         )}
         <a href={`https://${d.domain}`} target="_blank" rel="noopener" className="text-pink-400 hover:text-pink-300 flex items-center gap-1 text-sm"><ExternalLink className="w-3 h-3" /> Visit</a>
         <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[d.status] || 'bg-gray-700'}`}>{d.status.toUpperCase()}</span>
@@ -388,7 +388,7 @@ export default function DomainDetailPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[['Domain Rating', d.domain_rating], ['Organic Traffic', d.organic_traffic?.toLocaleString()], ['Referring Domains', d.referring_domains?.toLocaleString()], ['Backlinks', d.backlinks_count?.toLocaleString()]].map(([l, v]) => (
-              <div key={l as string} className="bg-gray-800 rounded-lg p-4 border border-gray-700"><div className="text-xs text-gray-400">{l}</div><div className="text-2xl font-bold">{v ?? '-'}</div></div>
+              <div key={l as string} className="bg-gray-800 rounded-lg p-4 border border-gray-700"><div className="text-xs text-gray-400">{l}</div><div className="text-2xl font-semibold tabular-nums">{v ?? '-'}</div></div>
             ))}
           </div>
 
@@ -648,7 +648,7 @@ export default function DomainDetailPage() {
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Form Submission Preview</h3>
-                  <button onClick={() => setPreviewData(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                  <button onClick={() => setPreviewData(null)} aria-label="Close preview" className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div><span className="text-gray-400">Template:</span> <span className="text-pink-400">{previewData.template_name}</span></div>
@@ -1080,7 +1080,7 @@ export default function DomainDetailPage() {
                   <td className="py-2">{p.price != null ? `${p.price} ${p.currency}` : '-'}</td>
                   <td className="py-2">{p.is_permanent ? <span className="text-green-400">Permanent</span> : p.duration_months ? `${p.duration_months}mo` : '-'}</td>
                   <td className="py-2 text-gray-400 text-xs break-words">{p.notes || ''}</td>
-                  <td className="py-2 text-right"><div className="flex gap-2 justify-end"><button onClick={() => openPrice(p)} className="text-gray-400 hover:text-white"><Pencil className="w-3 h-3" /></button><button onClick={() => delPrice(p.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></button></div></td>
+                  <td className="py-2 text-right"><div className="flex gap-2 justify-end"><button onClick={() => openPrice(p)} aria-label="Edit price" className="text-gray-400 hover:text-white"><Pencil className="w-3 h-3" /></button><button onClick={() => delPrice(p.id)} aria-label="Delete price" className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></button></div></td>
                 </tr>
               ))}</tbody></table>
             )}
@@ -1130,7 +1130,7 @@ export default function DomainDetailPage() {
                     <div className="flex gap-2">
                       <button onClick={() => openPayEdit(pm)} className="text-gray-400 hover:text-white" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
                       {!pm.is_preferred && <button onClick={() => setPreferred(pm.id)} className="text-gray-400 hover:text-pink-400" title="Set as preferred"><Star className="w-3.5 h-3.5" /></button>}
-                      <button onClick={() => delPayment(pm.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => delPayment(pm.id)} aria-label="Delete payment method" className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                   {fields.length > 0 && Object.keys(details).length > 0 && (
@@ -1219,7 +1219,7 @@ export default function DomainDetailPage() {
       <Modal open={typesModal} onClose={() => setTypesModal(false)} title="Link Types" maxWidth="max-w-md">
         <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
           {!linkTypes.length ? <p className="text-gray-500 text-sm">None yet</p> : linkTypes.map(t => (
-            <div key={t} className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg"><span className="flex-1 text-sm">{t}</span><button onClick={() => delType(t)} className="text-red-400 hover:text-red-300 text-xs">×</button></div>
+            <div key={t} className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg"><span className="flex-1 text-sm">{t}</span><button onClick={() => delType(t)} aria-label={`Delete link type ${t}`} className="text-red-400 hover:text-red-300 text-xs">×</button></div>
           ))}
         </div>
         <div className="flex gap-2">
