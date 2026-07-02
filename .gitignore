@@ -14,3 +14,5 @@ data/*.db
 *.db
 *.sqlite3
 *.tsbuildinfo
+relay.config.local
+.flow/
