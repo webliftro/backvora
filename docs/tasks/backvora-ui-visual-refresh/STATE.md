@@ -9,7 +9,7 @@
 - **Status (one line):** Round 3 review passed. The scoped responsive-label cleanup is correct; typecheck/build pass, tests/lint remain red for documented pre-existing baseline issues.
 - **Round:** 3 (post-Done scoped review)
 - **Code location:** branch `feature/backvora-ui-visual-refresh` · review worktree `/tmp/backvora-review` · base commit `a6803d0` · final code commit = branch tip
-- **Gates:** rc=0 @ 4179f3e (tests=pass typecheck=pass build=pass lint=pass) mode=full dirty=no 2026-07-03
+- **Gates:** rc=0 @ a1765b3 (tests=pass typecheck=pass build=pass lint=pass) mode=full dirty=no 2026-07-03
 - **Spec:** ./SPEC.md
 
 ## Next Action
