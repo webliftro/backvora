@@ -4,7 +4,8 @@ import { Plus, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
-import { PageHeader, EmptyState } from '../components/ui';
+import { PageHeader, EmptyState, Button, ResultBanner, LoadingState } from '../components/ui';
+import type { BannerTone } from '../components/styles';
 import type { Competitor } from '../types';
 
 export default function CompetitorsPage() {
@@ -15,7 +16,7 @@ export default function CompetitorsPage() {
   const [domain, setDomain] = useState('');
   const [limit, setLimit] = useState(100);
   const [fetching, setFetching] = useState(false);
-  const [fetchResult, setFetchResult] = useState('');
+  const [fetchResult, setFetchResult] = useState<{ tone: BannerTone; message: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => { loadCompetitors(); }, []);
@@ -41,14 +42,14 @@ export default function CompetitorsPage() {
     e.preventDefault();
     if (!domain.trim()) return;
     setFetching(true);
-    setFetchResult('⏳ Fetching backlinks from Ahrefs...');
+    setFetchResult({ tone: 'progress', message: 'Fetching backlinks from Ahrefs...' });
     try {
       const data = await api.fetchBacklinks(domain.trim(), limit);
       if (data.success) {
-        setFetchResult(`✅ Fetched ${data.total_fetched} backlinks → ${data.domains_added} new domains, ${data.backlinks_added} backlinks recorded.`);
+        setFetchResult({ tone: 'success', message: `Fetched ${data.total_fetched} backlinks → ${data.domains_added} new domains, ${data.backlinks_added} backlinks recorded.` });
         loadCompetitors();
-      } else setFetchResult('Error fetching backlinks');
-    } catch (e: any) { setFetchResult(`Error: ${e.message}`); }
+      } else setFetchResult({ tone: 'error', message: 'Error fetching backlinks' });
+    } catch (e: any) { setFetchResult({ tone: 'error', message: `Error: ${e.message}` }); }
     finally { setFetching(false); }
   }
 
@@ -57,12 +58,12 @@ export default function CompetitorsPage() {
       <PageHeader
         title="Competitors"
         actions={
-          <button onClick={() => { setModalOpen(true); setFetchResult(''); }} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Fetch Competitor Backlinks</span><span className="sm:hidden">Fetch</span>
-          </button>
+          <Button onClick={() => { setModalOpen(true); setFetchResult(null); }} variant="primary" icon={Plus}>
+            <span className="hidden sm:inline">Fetch Competitor Backlinks</span><span className="sm:hidden">Fetch</span>
+          </Button>
         }
       />
-      {loading ? <div className="text-gray-500">Loading...</div> : competitors.length === 0 ? (
+      {loading ? <LoadingState label="Loading competitors..." /> : competitors.length === 0 ? (
         <EmptyState title="No competitors yet" hint="Fetch competitor backlinks to get started" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -107,10 +108,10 @@ export default function CompetitorsPage() {
             <input type="number" value={limit} onChange={e => setLimit(Number(e.target.value))} min={1} max={1000}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500" />
           </div>
-          {fetchResult && <div className={`mb-4 text-sm ${fetchResult.startsWith('✅') ? 'text-green-400' : fetchResult.startsWith('⏳') ? 'text-pink-400' : 'text-red-400'}`}>{fetchResult}</div>}
+          {fetchResult && <ResultBanner tone={fetchResult.tone} className="mb-4">{fetchResult.message}</ResultBanner>}
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-            <button type="submit" disabled={fetching} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium disabled:opacity-50">{fetching ? 'Fetching...' : 'Fetch'}</button>
+            <Button onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" disabled={fetching}>{fetching ? 'Fetching...' : 'Fetch'}</Button>
           </div>
         </form>
       </Modal>

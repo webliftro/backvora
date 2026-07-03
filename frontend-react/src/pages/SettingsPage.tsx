@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Button, ResultBanner } from '../components/ui';
 
 export default function SettingsPage() {
   const { user, token } = useAuth();
@@ -91,7 +91,7 @@ export default function SettingsPage() {
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Outreach Templates</h2>
-          <button onClick={() => openEdit()} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm flex items-center gap-1"><Plus className="w-3 h-3" /> New</button>
+          <Button onClick={() => openEdit()} variant="primary" size="sm" icon={Plus}>New</Button>
         </div>
 
         {editTpl && (
@@ -104,8 +104,8 @@ export default function SettingsPage() {
               <textarea value={tplForm.body_template} onChange={e => setTplForm({ ...tplForm, body_template: e.target.value })} rows={4} className={ic} /></div>
             <label className="flex items-center gap-2"><input type="checkbox" checked={tplForm.is_active} onChange={e => setTplForm({ ...tplForm, is_active: e.target.checked })} /><span className="text-sm">Active</span></label>
             <div className="flex gap-2">
-              <button type="submit" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
-              <button type="button" onClick={() => setEditTpl(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
+              <Button type="submit" variant="primary">Save</Button>
+              <Button onClick={() => setEditTpl(null)}>Cancel</Button>
             </div>
           </form>
         )}
@@ -137,13 +137,13 @@ export default function SettingsPage() {
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <h2 className="text-lg font-semibold mb-4">Change Password</h2>
         {message && (
-          <div className={`mb-4 p-3 rounded text-sm ${message.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>{message.text}</div>
+          <ResultBanner tone={message.type === 'success' ? 'success' : 'error'} className="mb-4">{message.text}</ResultBanner>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div><label className="block text-sm text-gray-400 mb-1">Current Password</label><input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required className={ic} /></div>
           <div><label className="block text-sm text-gray-400 mb-1">New Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className={ic} /></div>
           <div><label className="block text-sm text-gray-400 mb-1">Confirm New Password</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className={ic} /></div>
-          <button type="submit" disabled={loading} className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 rounded-lg text-white font-medium transition-colors">{loading ? 'Changing...' : 'Change Password'}</button>
+          <Button type="submit" disabled={loading} variant="primary" className="w-full">{loading ? 'Changing...' : 'Change Password'}</Button>
         </form>
       </div>
     </div>

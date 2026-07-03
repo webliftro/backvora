@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Search, TrendingUp, Link2, Globe, BarChart3, ArrowRight } from 'lucide-react'
+import { Search, TrendingUp, Link2, Globe, ArrowRight, Loader2 } from 'lucide-react'
 import { api } from '../api'
 import { useNavigate } from 'react-router-dom'
+import { PageHeader, Button } from '../components/ui'
 
 interface Metrics {
   domain: string
@@ -60,14 +61,8 @@ export default function CheckMetricsPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 sm:gap-3">
-            <BarChart3 className="w-5 h-5 text-pink-500" />
-            Check Metrics
-          </h1>
-          <p className="text-gray-400 mt-1 text-sm">Look up Ahrefs metrics for any domain before adding it</p>
-        </div>
+      <div className="mb-6 sm:mb-8">
+        <PageHeader title="Check Metrics" description="Look up Ahrefs metrics for any domain before adding it" />
       </div>
 
       {/* Search */}
@@ -84,18 +79,10 @@ export default function CheckMetricsPage() {
               autoFocus
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading || !domain.trim()}
-            className="px-6 py-3 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Search className="w-4 h-4" />
-            )}
+          <Button type="submit" disabled={loading || !domain.trim()} variant="primary" className="px-6">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             Check
-          </button>
+          </Button>
         </form>
         {error && <p className="mt-3 text-red-400 text-sm">{error}</p>}
       </div>
@@ -108,12 +95,12 @@ export default function CheckMetricsPage() {
               <Globe className="w-5 h-5 text-gray-400 shrink-0" />
               <span className="truncate font-mono">{metrics.domain}</span>
             </h2>
-            <button
+            <Button
               onClick={() => navigate('/domains/new', { state: { domain: metrics.domain, metrics } })}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors self-start sm:self-auto shrink-0"
+              className="self-start sm:self-auto shrink-0"
             >
               <span className="hidden sm:inline">Add to Domains</span><span className="sm:hidden">Add</span> <ArrowRight className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             <div className="bg-gray-900 rounded-lg p-4">

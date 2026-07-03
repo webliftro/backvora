@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Pencil, Plus, Settings, Trash2, Star, RefreshCw, Search, Send, Eye, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Pencil, Plus, Settings, Trash2, Star, RefreshCw, Search, Send, Eye, X, Sparkles, ShieldAlert } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { Button, StatusPill } from '../components/ui';
+import { statusTone } from '../components/styles';
 import type { Domain, LinkPrice } from '../types';
 import { DOMAIN_STATUSES } from '../types';
-
-const statusColors: Record<string, string> = {
-  new: 'bg-gray-600', analyzing: 'bg-pink-600', analyzed: 'bg-pink-700',
-  contacted: 'bg-yellow-600', replied: 'bg-green-600', negotiating: 'bg-orange-600',
-  deal_closed: 'bg-green-700', rejected: 'bg-red-600', blacklisted: 'bg-red-900',
-};
 
 export default function DomainDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -368,23 +364,23 @@ export default function DomainDetailPage() {
         {editDomain ? (
           <form onSubmit={async (e) => { e.preventDefault(); const v = editDomainVal.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''); if (!v) return; try { await api.updateDomain(id!, { domain: v }); toast('Domain updated'); setEditDomain(false); load(); } catch (err: any) { toast(err.message, 'error'); } }} className="flex items-center gap-2">
             <input type="text" value={editDomainVal} onChange={e => setEditDomainVal(e.target.value)} autoFocus className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-xl font-semibold font-mono focus:outline-none focus:border-pink-500" />
-            <button type="submit" className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm">Save</button>
-            <button type="button" onClick={() => setEditDomain(false)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">Cancel</button>
+            <Button type="submit" variant="primary" size="sm">Save</Button>
+            <Button size="sm" onClick={() => setEditDomain(false)}>Cancel</Button>
           </form>
         ) : (
           <h1 className="text-xl font-semibold tracking-tight font-mono cursor-pointer hover:text-pink-400 transition-colors" onClick={() => { setEditDomainVal(d.domain); setEditDomain(true); }} title="Click to edit">{d.domain}</h1>
         )}
-        <a href={`https://${d.domain}`} target="_blank" rel="noopener" className="text-pink-400 hover:text-pink-300 flex items-center gap-1 text-sm"><ExternalLink className="w-3 h-3" /> Visit</a>
-        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[d.status] || 'bg-gray-700'}`}>{d.status.toUpperCase()}</span>
+        <a href={`https://${d.domain}`} target="_blank" rel="noopener" className="text-pink-400 hover:text-pink-300 flex items-center gap-1 text-sm"><ExternalLink className="w-4 h-4" /> Visit</a>
+        <StatusPill tone={statusTone(d.status)}>{d.status.toUpperCase()}</StatusPill>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Metrics</h2>
-            <button onClick={analyzeDomain} disabled={analyzing} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1 disabled:opacity-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${analyzing ? 'animate-spin' : ''}`} /> {analyzing ? 'Updating...' : 'Update from Ahrefs'}
-            </button>
+            <Button size="sm" onClick={analyzeDomain} disabled={analyzing}>
+              <RefreshCw className={`w-4 h-4 ${analyzing ? 'animate-spin' : ''}`} aria-hidden /> {analyzing ? 'Updating...' : 'Update from Ahrefs'}
+            </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[['Domain Rating', d.domain_rating], ['Organic Traffic', d.organic_traffic?.toLocaleString()], ['Referring Domains', d.referring_domains?.toLocaleString()], ['Backlinks', d.backlinks_count?.toLocaleString()]].map(([l, v]) => (
@@ -412,11 +408,11 @@ export default function DomainDetailPage() {
                       }
                     } catch (e: any) { toast(e.message, 'error'); }
                   }}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm flex items-center gap-1"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-sm rounded-md bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <Search className="w-3 h-3" /> Inbox
+                  <Search className="w-4 h-4" aria-hidden /> Inbox
                 </button>
-                <button onClick={() => setEditContact(!editContact)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> {editContact ? 'Cancel' : 'Edit'}</button>
+                <Button size="sm" icon={Pencil} onClick={() => setEditContact(!editContact)}>{editContact ? 'Cancel' : 'Edit'}</Button>
               </div>
             </div>
             {editContact ? (
@@ -451,12 +447,12 @@ export default function DomainDetailPage() {
                   <div><label className="block text-xs text-gray-400 mb-1">Telegram</label><input type="text" value={contact.telegram} onChange={e => setContact({ ...contact, telegram: e.target.value })} className={ic} /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">Language</label><input type="text" value={contact.language} onChange={e => setContact({ ...contact, language: e.target.value })} placeholder="English" className={ic} /></div>
                 </div>
-                <button onClick={saveContact2} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
+                <Button variant="primary" onClick={saveContact2}>Save</Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><div className="text-xs text-gray-400 mb-1">Owner</div><div className="text-sm">{d.owner || '-'}</div></div>
-                <div><div className="text-xs text-gray-400 mb-1">Email</div><div className="text-sm flex items-center gap-2">{d.email ? <><a href={`mailto:${d.email}`} className="text-pink-400 hover:underline">{d.email}</a><button onClick={() => openSendEmail(d.email!)} className="text-gray-400 hover:text-pink-400" title="Send email"><Send className="w-3.5 h-3.5" /></button></> : '-'}</div></div>
+                <div><div className="text-xs text-gray-400 mb-1">Email</div><div className="text-sm flex items-center gap-2">{d.email ? <><a href={`mailto:${d.email}`} className="text-pink-400 hover:underline">{d.email}</a><button onClick={() => openSendEmail(d.email!)} className="text-gray-400 hover:text-pink-400" title="Send email"><Send className="w-4 h-4" /></button></> : '-'}</div></div>
                 <div><div className="text-xs text-gray-400 mb-1">Telegram</div><div className="text-sm">{d.telegram ? <a href={`https://t.me/${d.telegram.replace('@','')}`} target="_blank" className="text-pink-400 hover:underline">{d.telegram}</a> : '-'}</div></div>
                 <div><div className="text-xs text-gray-400 mb-1">Language</div><div className="text-sm">{d.language || 'English'}</div></div>
               </div>
@@ -471,7 +467,7 @@ export default function DomainDetailPage() {
               </div>
               <div className="space-y-2">
                 {savedContacts.map((c: any) => (
-                  <div key={c.id} className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${c.is_primary ? 'bg-pink-900/20 border-pink-700' : 'bg-gray-700/50 border-gray-600'}`}>
+                  <div key={c.id} className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${c.is_primary ? 'bg-pink-600/10 border-pink-600/30' : 'bg-gray-700/50 border-gray-600'}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <a href={`mailto:${c.email}`} className="text-sm text-pink-400 hover:underline font-medium">{c.email}</a>
@@ -513,12 +509,12 @@ export default function DomainDetailPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Contacts Grabber</h2>
               <div className="flex gap-2">
-                <button onClick={() => grabContacts(false)} disabled={grabbing} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1 disabled:opacity-50">
-                  <Search className={`w-3.5 h-3.5 ${grabbing ? 'animate-spin' : ''}`} /> {grabbing ? 'Grabbing...' : 'Grab Contacts'}
-                </button>
-                <button onClick={() => grabContacts(true)} disabled={grabbing} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm flex items-center gap-1 disabled:opacity-50" title="Deep scraping with browser automation (slower but finds more)">
-                  <Search className={`w-3.5 h-3.5 ${grabbing ? 'animate-spin' : ''}`} /> {grabbing ? 'Deep Grabbing...' : 'Deep Grab'}
-                </button>
+                <Button size="sm" onClick={() => grabContacts(false)} disabled={grabbing}>
+                  <Search className={`w-4 h-4 ${grabbing ? 'animate-spin' : ''}`} aria-hidden /> {grabbing ? 'Grabbing...' : 'Grab Contacts'}
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => grabContacts(true)} disabled={grabbing} title="Deep scraping with browser automation (slower but finds more)">
+                  <Search className={`w-4 h-4 ${grabbing ? 'animate-spin' : ''}`} aria-hidden /> {grabbing ? 'Deep Grabbing...' : 'Deep Grab'}
+                </Button>
               </div>
             </div>
 
@@ -529,7 +525,7 @@ export default function DomainDetailPage() {
                   <span className="text-pink-400 font-medium">{grabResult.contacts_added || 0}</span> new contacts added,{' '}
                   <span className="text-pink-400 font-medium">{grabResult.forms_detected || 0}</span> forms detected
                   {grabResult.method && (
-                    <span className={`ml-2 px-2 py-0.5 rounded text-xs ${grabResult.method === 'browser' ? 'bg-pink-900/50 text-pink-300' : 'bg-gray-700 text-gray-400'}`}>
+                    <span className={`ml-2 px-2 py-0.5 rounded text-xs ${grabResult.method === 'browser' ? 'bg-pink-600/15 text-pink-300' : 'bg-gray-700 text-gray-400'}`}>
                       {grabResult.method === 'browser' ? '🌐 Browser mode' : '📄 Static mode'}
                     </span>
                   )}
@@ -539,9 +535,7 @@ export default function DomainDetailPage() {
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-gray-500 font-medium">Emails:</div>
                       {grabResult.emails.filter((e: any) => !savedEmails.has(e.email?.toLowerCase()) && !e.already_saved && !dismissedEmails.has(e.email?.toLowerCase())).length > 0 && (
-                        <button onClick={saveAllGrabbedEmails} className="px-2 py-1 bg-pink-600 hover:bg-pink-700 rounded text-xs flex items-center gap-1">
-                          <Plus className="w-3 h-3" /> Save All
-                        </button>
+                        <Button variant="primary" size="xs" icon={Plus} onClick={saveAllGrabbedEmails}>Save All</Button>
                       )}
                     </div>
                     {grabResult.emails.filter((e: any) => !dismissedEmails.has(e.email?.toLowerCase())).map((e: any, i: number) => {
@@ -554,12 +548,12 @@ export default function DomainDetailPage() {
                             <span className="text-xs text-green-400">✓ Saved</span>
                           ) : (
                             <>
-                              <button onClick={() => saveGrabbedEmail(e)} disabled={savingEmails.has(e.email)} className="px-1.5 py-0.5 bg-pink-600 hover:bg-pink-700 rounded text-xs disabled:opacity-50">
+                              <Button variant="primary" size="xs" onClick={() => saveGrabbedEmail(e)} disabled={savingEmails.has(e.email)}>
                                 {savingEmails.has(e.email) ? '...' : 'Save'}
-                              </button>
-                              <button onClick={() => setDismissedEmails(prev => new Set(prev).add(e.email.toLowerCase()))} className="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-500 rounded text-xs text-gray-300">
+                              </Button>
+                              <Button size="xs" onClick={() => setDismissedEmails(prev => new Set(prev).add(e.email.toLowerCase()))}>
                                 Dismiss
-                              </button>
+                              </Button>
                             </>
                           )}
                         </div>
@@ -591,7 +585,7 @@ export default function DomainDetailPage() {
                             <a href={f.form_url} target="_blank" className="text-sm text-pink-400 hover:underline">{f.form_url}</a>
                             {f.has_captcha && (
                               <span className="px-2 py-0.5 bg-yellow-900/50 border border-yellow-700 rounded text-xs text-yellow-400 flex items-center gap-1">
-                                ⚠️ CAPTCHA ({f.captcha_type?.replace('_', ' ')})
+                                <ShieldAlert className="w-4 h-4" aria-hidden /> CAPTCHA ({f.captcha_type?.replace('_', ' ')})
                               </span>
                             )}
                           </div>
@@ -604,14 +598,16 @@ export default function DomainDetailPage() {
                             </span>
                           ) : (
                             <>
-                              <button onClick={() => previewSubmit(f.id)} className="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs flex items-center gap-1"><Eye className="w-3 h-3" /> Preview</button>
-                              <button 
-                                onClick={() => doSubmitForm(f.id, undefined, f.has_captcha)} 
-                                disabled={submitting === f.id} 
-                                className="px-2 py-1 bg-pink-600 hover:bg-pink-700 rounded text-xs flex items-center gap-1 disabled:opacity-50"
+                              <Button size="xs" icon={Eye} onClick={() => previewSubmit(f.id)}>Preview</Button>
+                              <Button
+                                variant="primary"
+                                size="xs"
+                                icon={Send}
+                                onClick={() => doSubmitForm(f.id, undefined, f.has_captcha)}
+                                disabled={submitting === f.id}
                               >
-                                <Send className="w-3 h-3" /> {f.has_captcha ? (submitting === f.id ? 'Solving...' : 'Solve & Submit') : (submitting === f.id ? 'Sending...' : 'Submit')}
-                              </button>
+                                {f.has_captcha ? (submitting === f.id ? 'Solving...' : 'Solve & Submit') : (submitting === f.id ? 'Sending...' : 'Submit')}
+                              </Button>
                             </>
                           )}
                         </div>
@@ -677,10 +673,10 @@ export default function DomainDetailPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={() => doSubmitForm(previewData.form_id, previewData.template_id)} disabled={submitting !== null} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium disabled:opacity-50">
+                  <Button variant="primary" onClick={() => doSubmitForm(previewData.form_id, previewData.template_id)} disabled={submitting !== null}>
                     {submitting ? 'Submitting...' : 'Confirm & Submit'}
-                  </button>
-                  <button onClick={() => setPreviewData(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
+                  </Button>
+                  <Button onClick={() => setPreviewData(null)}>Cancel</Button>
                 </div>
               </div>
             </div>
@@ -700,18 +696,14 @@ export default function DomainDetailPage() {
                       loadPublisherRules();
                     } catch (e: any) { toast(e.message || 'Failed to grab rules', 'error'); }
                   }}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm flex items-center gap-1"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-sm rounded-md bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-4 h-4" aria-hidden />
                   Grab Rules
                 </button>
-                <button
-                  onClick={() => setEditRules(!editRules)}
-                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"
-                >
-                  <Pencil className="w-3 h-3" />
+                <Button size="sm" icon={Pencil} onClick={() => setEditRules(!editRules)}>
                   {editRules ? 'Cancel' : 'Edit'}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -920,12 +912,7 @@ export default function DomainDetailPage() {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium"
-                >
-                  Save Rules
-                </button>
+                <Button type="submit" variant="primary">Save Rules</Button>
               </form>
             ) : publisherRules ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1045,8 +1032,8 @@ export default function DomainDetailPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Link Prices</h2>
               <div className="flex gap-2">
-                <button onClick={() => setTypesModal(true)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Settings className="w-3 h-3" /> Types</button>
-                <button onClick={() => openPrice()} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+                <Button size="sm" icon={Settings} onClick={() => setTypesModal(true)}>Types</Button>
+                <Button variant="primary" size="sm" icon={Plus} onClick={() => openPrice()}>Add</Button>
               </div>
             </div>
             {priceOpen && (
@@ -1067,8 +1054,8 @@ export default function DomainDetailPage() {
                 </div>
                 <input type="text" value={pf.notes} onChange={e => setPf({ ...pf, notes: e.target.value })} placeholder="Notes..." className={`${ic} mb-3`} />
                 <div className="flex gap-2">
-                  <button type="submit" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
-                  <button type="button" onClick={() => setPriceOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
+                  <Button type="submit" variant="primary">Save</Button>
+                  <Button onClick={() => setPriceOpen(false)}>Cancel</Button>
                 </div>
               </form>
             )}
@@ -1080,7 +1067,7 @@ export default function DomainDetailPage() {
                   <td className="py-2">{p.price != null ? `${p.price} ${p.currency}` : '-'}</td>
                   <td className="py-2">{p.is_permanent ? <span className="text-green-400">Permanent</span> : p.duration_months ? `${p.duration_months}mo` : '-'}</td>
                   <td className="py-2 text-gray-400 text-xs break-words">{p.notes || ''}</td>
-                  <td className="py-2 text-right"><div className="flex gap-2 justify-end"><button onClick={() => openPrice(p)} aria-label="Edit price" className="text-gray-400 hover:text-white"><Pencil className="w-3 h-3" /></button><button onClick={() => delPrice(p.id)} aria-label="Delete price" className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></button></div></td>
+                  <td className="py-2 text-right"><div className="flex gap-2 justify-end"><button onClick={() => openPrice(p)} aria-label="Edit price" className="text-gray-400 hover:text-white"><Pencil className="w-4 h-4" /></button><button onClick={() => delPrice(p.id)} aria-label="Delete price" className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button></div></td>
                 </tr>
               ))}</tbody></table>
             )}
@@ -1090,7 +1077,7 @@ export default function DomainDetailPage() {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Payment Methods</h2>
-              <button onClick={() => { setPayEditId(null); setPayMethod(''); setPayDetailsMap({}); setPayOpen(!payOpen); }} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+              <Button variant="primary" size="sm" icon={Plus} onClick={() => { setPayEditId(null); setPayMethod(''); setPayDetailsMap({}); setPayOpen(!payOpen); }}>Add</Button>
             </div>
             {payOpen && (
               <form onSubmit={savePayment} className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
@@ -1111,8 +1098,8 @@ export default function DomainDetailPage() {
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <button type="submit" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
-                  <button type="button" onClick={() => { setPayOpen(false); setPayEditId(null); setPayMethod(''); setPayDetailsMap({}); }} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
+                  <Button type="submit" variant="primary">Save</Button>
+                  <Button onClick={() => { setPayOpen(false); setPayEditId(null); setPayMethod(''); setPayDetailsMap({}); }}>Cancel</Button>
                 </div>
               </form>
             )}
@@ -1121,16 +1108,16 @@ export default function DomainDetailPage() {
                 const fields = payFields[pm.method] || [];
                 const details = pm.details || {};
                 return (
-                <div key={pm.id} className={`p-3 rounded-lg border ${pm.is_preferred ? 'bg-pink-900/20 border-pink-700' : 'bg-gray-700/50 border-gray-600'}`}>
+                <div key={pm.id} className={`p-3 rounded-lg border ${pm.is_preferred ? 'bg-pink-600/10 border-pink-600/30' : 'bg-gray-700/50 border-gray-600'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{pm.method}</span>
                       {pm.is_preferred && <span className="text-xs text-pink-400 flex items-center gap-1"><Star className="w-3 h-3" /> Preferred</span>}
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => openPayEdit(pm)} className="text-gray-400 hover:text-white" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                      {!pm.is_preferred && <button onClick={() => setPreferred(pm.id)} className="text-gray-400 hover:text-pink-400" title="Set as preferred"><Star className="w-3.5 h-3.5" /></button>}
-                      <button onClick={() => delPayment(pm.id)} aria-label="Delete payment method" className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => openPayEdit(pm)} className="text-gray-400 hover:text-white" title="Edit"><Pencil className="w-4 h-4" /></button>
+                      {!pm.is_preferred && <button onClick={() => setPreferred(pm.id)} className="text-gray-400 hover:text-pink-400" title="Set as preferred"><Star className="w-4 h-4" /></button>}
+                      <button onClick={() => delPayment(pm.id)} aria-label="Delete payment method" className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                   {fields.length > 0 && Object.keys(details).length > 0 && (
@@ -1149,11 +1136,11 @@ export default function DomainDetailPage() {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Notes</h2>
-              {!editNotes && <button onClick={() => setEditNotes(true)} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>}
+              {!editNotes && <Button size="sm" icon={Pencil} onClick={() => setEditNotes(true)}>Edit</Button>}
             </div>
             {editNotes ? (
               <div><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className={`${ic} mb-2`} />
-              <div className="flex gap-2"><button onClick={saveNotes2} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button><button onClick={() => { setEditNotes(false); setNotes(d.notes || ''); }} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button></div></div>
+              <div className="flex gap-2"><Button variant="primary" onClick={saveNotes2}>Save</Button><Button onClick={() => { setEditNotes(false); setNotes(d.notes || ''); }}>Cancel</Button></div></div>
             ) : <p className="text-sm text-gray-300 whitespace-pre-wrap">{d.notes || '-'}</p>}
           </div>
         </div>
@@ -1194,7 +1181,7 @@ export default function DomainDetailPage() {
               <label className="block text-xs text-gray-400 mb-2">Use Template</label>
               <div className="flex flex-wrap gap-2">
                 {sendEmailTemplates.map((t: any) => (
-                  <button key={t.id} onClick={() => applyTemplate(t)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">{t.name}</button>
+                  <Button key={t.id} size="xs" onClick={() => applyTemplate(t)}>{t.name}</Button>
                 ))}
               </div>
             </div>
@@ -1208,10 +1195,10 @@ export default function DomainDetailPage() {
             <textarea value={sendEmailBody} onChange={e => setSendEmailBody(e.target.value)} rows={8} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500 resize-none" />
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setSendEmailOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-            <button onClick={handleSendEmail} disabled={sendingEmail || !sendEmailSubject.trim() || !sendEmailBody.trim()} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1 disabled:opacity-50">
-              <Send className="w-3.5 h-3.5" /> {sendingEmail ? 'Sending...' : 'Send'}
-            </button>
+            <Button onClick={() => setSendEmailOpen(false)}>Cancel</Button>
+            <Button variant="primary" icon={Send} onClick={handleSendEmail} disabled={sendingEmail || !sendEmailSubject.trim() || !sendEmailBody.trim()}>
+              {sendingEmail ? 'Sending...' : 'Send'}
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1219,12 +1206,12 @@ export default function DomainDetailPage() {
       <Modal open={typesModal} onClose={() => setTypesModal(false)} title="Link Types" maxWidth="max-w-md">
         <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
           {!linkTypes.length ? <p className="text-gray-500 text-sm">None yet</p> : linkTypes.map(t => (
-            <div key={t} className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg"><span className="flex-1 text-sm">{t}</span><button onClick={() => delType(t)} aria-label={`Delete link type ${t}`} className="text-red-400 hover:text-red-300 text-xs">×</button></div>
+            <div key={t} className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg"><span className="flex-1 text-sm">{t}</span><button onClick={() => delType(t)} aria-label={`Delete link type ${t}`} className="text-red-400 hover:text-red-300"><X className="w-4 h-4" /></button></div>
           ))}
         </div>
         <div className="flex gap-2">
           <input type="text" value={newType} onChange={e => setNewType(e.target.value)} onKeyDown={e => e.key === 'Enter' && addType()} placeholder="New type..." className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-pink-500" />
-          <button onClick={addType} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Add</button>
+          <Button variant="primary" onClick={addType}>Add</Button>
         </div>
       </Modal>
     </div>

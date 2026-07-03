@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CreditCard } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
+import { Button, ResultBanner } from '../components/ui';
 import { DOMAIN_STATUSES } from '../types';
 
 export default function DomainAddPage() {
@@ -97,7 +98,7 @@ export default function DomainAddPage() {
 
   const suggestionDropdown = (
     showSuggestions ? (
-      <div className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+      <div className="absolute z-50 left-0 right-0 mt-1 glass border border-gray-600 rounded-lg max-h-64 overflow-y-auto">
         {ownerSuggestions.map((s, i) => (
           <button key={i} type="button" onMouseDown={() => pickOwner(s)} className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm">
             <div className="font-medium">{s.owner}</div>
@@ -121,9 +122,9 @@ export default function DomainAddPage() {
           <input type="text" value={form.domain} onChange={e => { setForm({ ...form, domain: e.target.value }); checkDupe(e.target.value); }}
             placeholder="example.com" required autoFocus className={`${ic} !text-lg font-mono`} />
           {dupeMatch && (
-            <div className="mt-2 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-sm text-yellow-400">
-              ⚠️ Already exists! <Link to={`/domains/${dupeMatch.id}`} className="underline text-pink-400">View →</Link>
-            </div>
+            <ResultBanner tone="warning" className="mt-2">
+              Already exists! <Link to={`/domains/${dupeMatch.id}`} className="underline text-pink-400">View →</Link>
+            </ResultBanner>
           )}
         </div>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -147,9 +148,12 @@ export default function DomainAddPage() {
               <input type="text" value={form.telegram} onChange={e => setForm({ ...form, telegram: e.target.value })} className={ic} /></div>
           </div>
           {pendingPayments.length > 0 && (
-            <div className="mt-3 p-3 bg-pink-900/20 border border-pink-700 rounded-lg text-sm">
-              <span className="text-pink-400">💳 {pendingPayments.length} payment method(s)</span> will be copied: {pendingPayments.map(p => p.method).join(', ')}
-              <button type="button" onClick={() => setPendingPayments([])} className="ml-2 text-gray-400 hover:text-white text-xs">(clear)</button>
+            <div className="mt-3 p-3 bg-pink-600/10 border border-pink-600/30 rounded-lg text-sm flex items-start gap-2.5">
+              <CreditCard className="w-4 h-4 mt-0.5 shrink-0 text-pink-400" aria-hidden />
+              <span className="flex-1">
+                <span className="text-pink-400">{pendingPayments.length} payment method(s)</span> will be copied: {pendingPayments.map(p => p.method).join(', ')}
+                <button type="button" onClick={() => setPendingPayments([])} className="ml-2 text-gray-400 hover:text-white text-xs">(clear)</button>
+              </span>
             </div>
           )}
         </div>
@@ -178,7 +182,7 @@ export default function DomainAddPage() {
         </div>
         <div className="flex justify-between items-center">
           <Link to="/domains" className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</Link>
-          <button type="submit" disabled={!!dupeMatch} className="px-6 py-3 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium disabled:opacity-50">Add Domain</button>
+          <Button type="submit" disabled={!!dupeMatch} variant="primary" className="px-6">Add Domain</Button>
         </div>
       </form>
     </div>

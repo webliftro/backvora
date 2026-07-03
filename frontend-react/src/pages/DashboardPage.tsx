@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Button, ResultBanner } from '../components/ui';
+import { buttonClasses } from '../components/styles';
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -47,7 +48,7 @@ export default function DashboardPage() {
     try {
       const data = await api.fetchBacklinks(compDomain, compLimit);
       if (data.success) {
-        setCompResult(`✓ Fetched ${data.total_fetched} backlinks → ${data.domains_added} new domains, ${data.backlinks_added} backlinks recorded`);
+        setCompResult(`Fetched ${data.total_fetched} backlinks → ${data.domains_added} new domains, ${data.backlinks_added} backlinks recorded`);
         loadStats();
       } else setCompResult('Error fetching backlinks');
     } catch (e: any) { setCompResult(`Error: ${e.message}`); }
@@ -94,12 +95,12 @@ export default function DashboardPage() {
       <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
         <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          <Link to="/domains" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
+          <Link to="/domains" className={buttonClasses('primary')}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Domains</span><span className="sm:hidden">Add</span>
           </Link>
-          <button onClick={() => setShowCompForm(!showCompForm)} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
-            <Search className="w-4 h-4" /> <span className="hidden sm:inline">Analyze Competitor</span><span className="sm:hidden">Analyze</span>
-          </button>
+          <Button onClick={() => setShowCompForm(!showCompForm)} variant="primary" icon={Search}>
+            <span className="hidden sm:inline">Analyze Competitor</span><span className="sm:hidden">Analyze</span>
+          </Button>
         </div>
       </div>
       {showCompForm && (
@@ -110,9 +111,13 @@ export default function DashboardPage() {
               className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm" />
             <input type="number" value={compLimit} onChange={e => setCompLimit(Number(e.target.value))} min={1} max={1000}
               className="w-full sm:w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 text-sm" />
-            <button type="submit" className="px-6 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Fetch</button>
+            <Button type="submit" variant="primary">Fetch</Button>
           </form>
-          {compResult && <div className="mt-4 text-sm text-green-400 whitespace-pre-line">{compResult}</div>}
+          {compResult && (
+            <ResultBanner tone={compResult.startsWith('Error') ? 'error' : compResult.startsWith('Fetching') ? 'progress' : 'success'} className="mt-4 whitespace-pre-line">
+              {compResult}
+            </ResultBanner>
+          )}
         </div>
       )}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">

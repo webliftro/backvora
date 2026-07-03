@@ -40,7 +40,7 @@ const navGroups: NavGroup[] = [
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return `relative flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
     isActive
-      ? 'bg-pink-600/15 text-gray-100 font-medium before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-pink-500'
+      ? 'bg-gray-700 text-white font-medium'
       : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
   }`
 }
@@ -50,8 +50,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <NavLink to="/" onClick={onNavigate} className="flex items-center gap-2 px-4 h-14 shrink-0">
-        <span className="flex items-center justify-center w-7 h-7 rounded-md bg-pink-600/15">
-          <Link2 className="w-4 h-4 text-pink-400" />
+        <span className="flex items-center justify-center w-7 h-7">
+          <Link2 className="w-5 h-5 text-pink-500" />
         </span>
         <span className="text-[15px] font-semibold tracking-tight">BackVora</span>
       </NavLink>
@@ -67,7 +67,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             <div className="space-y-0.5">
               {group.items.map((item) => (
                 <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={navLinkClass}>
-                  <item.icon className="w-4 h-4 shrink-0" />
+                  <item.icon className="w-5 h-5 shrink-0" />
                   {item.label}
                 </NavLink>
               ))}
@@ -78,7 +78,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="shrink-0 border-t border-gray-700 px-2 py-3 space-y-0.5">
         <NavLink to="/settings" onClick={onNavigate} className={navLinkClass}>
-          <Settings className="w-4 h-4 shrink-0" />
+          <Settings className="w-5 h-5 shrink-0" />
           Settings
         </NavLink>
         {user && (
@@ -113,7 +113,7 @@ export default function Layout() {
       </aside>
 
       {/* Mobile / tablet top bar */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-4 bg-gray-800 border-b border-gray-700">
+      <header className="lg:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-4 glass border-b border-gray-700">
         <button
           onClick={() => setDrawerOpen(true)}
           className="p-2 -ml-2 rounded-md text-gray-400 hover:text-gray-200 transition-colors"
@@ -122,7 +122,7 @@ export default function Layout() {
           <Menu className="w-5 h-5" />
         </button>
         <NavLink to="/" className="flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-pink-400" />
+          <Link2 className="w-5 h-5 text-pink-500" />
           <span className="text-[15px] font-semibold tracking-tight">BackVora</span>
         </NavLink>
       </header>
@@ -130,8 +130,8 @@ export default function Layout() {
       {/* Mobile drawer */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-label="Navigation menu">
-          <div className="absolute inset-0 bg-black/60" onClick={closeDrawer} />
-          <div className="absolute inset-y-0 left-0 w-64 max-w-[85vw] bg-gray-800 border-r border-gray-700 shadow-xl">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeDrawer} />
+          <div className="absolute inset-y-0 left-0 w-64 max-w-[85vw] glass border-r border-gray-700">
             <button
               onClick={closeDrawer}
               className="absolute top-3 right-3 p-2 rounded-md text-gray-400 hover:text-gray-200 transition-colors"

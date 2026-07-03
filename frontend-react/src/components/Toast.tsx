@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map(t => {
           const { icon: Icon, accent } = toastStyles[t.type];
           return (
-            <div key={t.id} className={`bg-gray-800 border ${accent} text-gray-100 px-4 py-3 rounded-lg shadow-lg shadow-black/30 max-w-md flex items-start gap-2.5`}>
+            <div key={t.id} className={`glass border ${accent} text-gray-100 px-4 py-3 rounded-lg max-w-md flex items-start gap-2.5`}>
               <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${accent.split(' ')[0]}`} />
               <span className="whitespace-pre-line flex-1 text-sm">{t.message}</span>
               <button onClick={() => remove(t.id)} className="shrink-0 mt-0.5 text-gray-500 hover:text-gray-200 transition-colors" aria-label="Dismiss notification"><X className="w-4 h-4" /></button>

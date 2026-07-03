@@ -4,10 +4,11 @@ import { Globe, Plus, Trash2, Upload, ArrowLeft, Sparkles, Edit2, X } from 'luci
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { PageHeader, Button, EmptyState, LoadingState } from '../components/ui';
 
 const ANCHOR_COLORS: Record<string, string> = {
   brand: 'bg-blue-600',
-  topical: 'bg-purple-600',
+  topical: 'bg-teal-600',
   generic: 'bg-gray-600',
   exact: 'bg-green-600',
   url: 'bg-yellow-600',
@@ -38,20 +39,24 @@ export function TargetSitesListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2"><Globe className="w-5 h-5 text-pink-500" /> Target Sites</h1>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium self-start sm:self-auto">
-          <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Site</span><span className="sm:hidden">Add</span>
-        </button>
-      </div>
-
-      <p className="text-gray-400 text-sm">Sites you're building links to. Define target URLs, anchor texts, and distribution strategy here.</p>
+      <PageHeader
+        title="Target Sites"
+        description="Sites you're building links to. Define target URLs, anchor texts, and distribution strategy here."
+        actions={
+          <Button onClick={() => setShowCreate(true)} variant="primary" icon={Plus}>
+            <span className="hidden sm:inline">Add Site</span><span className="sm:hidden">Add</span>
+          </Button>
+        }
+      />
 
       {sites.length === 0 ? (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-          <Globe className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400 mb-4">No target sites yet. Add your first site to start managing anchor text strategy.</p>
-          <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-pink-600 rounded-lg text-sm">Add Your First Site</button>
+        <div className="bg-gray-800 rounded-lg border border-gray-700">
+          <EmptyState
+            icon={Globe}
+            title="No target sites yet"
+            hint="Add your first site to start managing anchor text strategy."
+            action={<Button onClick={() => setShowCreate(true)} variant="primary">Add Your First Site</Button>}
+          />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,7 +72,7 @@ export function TargetSitesListPage() {
               <div className="flex gap-1 mt-3">
                 {[
                   { label: 'B', pct: s.anchor_brand_pct, color: 'bg-blue-600' },
-                  { label: 'T', pct: s.anchor_topical_pct, color: 'bg-purple-600' },
+                  { label: 'T', pct: s.anchor_topical_pct, color: 'bg-teal-600' },
                   { label: 'G', pct: s.anchor_generic_pct, color: 'bg-gray-600' },
                   { label: 'E', pct: s.anchor_exact_pct, color: 'bg-green-600' },
                   { label: 'U', pct: s.anchor_url_pct, color: 'bg-yellow-600' },
@@ -96,7 +101,7 @@ export function TargetSitesListPage() {
             <label className="block text-sm text-gray-400 mb-1">Brand Variations <span className="text-gray-600">(comma-separated)</span></label>
             <input value={form.brand_variations} onChange={e => setForm(f => ({ ...f, brand_variations: e.target.value }))} placeholder="Cam Hours, cam hours, CAMHOURS, CH" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg" />
           </div>
-          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Create</button>
+          <Button type="submit" variant="primary" className="w-full">Create</Button>
         </form>
       </Modal>
     </div>
@@ -216,7 +221,7 @@ export function TargetSiteDetailPage() {
     } catch (e: any) { toast(e.message, 'error'); }
   }
 
-  if (loading) return <div className="text-center py-12 text-gray-400">Loading...</div>;
+  if (loading) return <LoadingState label="Loading site..." className="py-12" />;
   if (!site) return <div className="text-center py-12 text-gray-400">Site not found</div>;
 
   const distTotal = distForm.brand + distForm.topical + distForm.generic + distForm.exact + distForm.url;
@@ -252,18 +257,18 @@ export function TargetSiteDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={handleSuggest} className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm">
+          <button onClick={handleSuggest} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors">
             <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Suggest Next Anchor</span><span className="sm:hidden">Suggest</span>
           </button>
-          <button onClick={() => setBulkModal(true)} className="flex items-center gap-2 px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm">
-            <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Bulk Import</span><span className="sm:hidden">Import</span>
-          </button>
+          <Button onClick={() => setBulkModal(true)} variant="primary" icon={Upload}>
+            <span className="hidden sm:inline">Bulk Import</span><span className="sm:hidden">Import</span>
+          </Button>
         </div>
       </div>
 
       {/* Suggestion */}
       {suggestion?.suggestion && (
-        <div className="bg-purple-900/30 border border-purple-700 rounded-lg p-4">
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm text-gray-400">Suggested next anchor:</span>
@@ -303,7 +308,7 @@ export function TargetSiteDetailPage() {
         <div className="flex h-6 rounded overflow-hidden mb-3">
           {[
             { key: 'brand', label: 'Brand', color: 'bg-blue-600' },
-            { key: 'topical', label: 'Topical', color: 'bg-purple-600' },
+            { key: 'topical', label: 'Topical', color: 'bg-teal-600' },
             { key: 'generic', label: 'Generic', color: 'bg-gray-600' },
             { key: 'exact', label: 'Exact', color: 'bg-green-600' },
             { key: 'url', label: 'URL', color: 'bg-yellow-600' },
@@ -351,7 +356,7 @@ export function TargetSiteDetailPage() {
             <span className={`text-sm ${distTotal === 100 ? 'text-green-400' : 'text-red-400'}`}>
               Total: {distTotal}% {distTotal !== 100 && '(should be 100%)'}
             </span>
-            <button onClick={handleSaveDist} disabled={distTotal !== 100} className="px-4 py-1.5 bg-pink-600 hover:bg-pink-700 rounded text-sm disabled:opacity-50">Save</button>
+            <Button onClick={handleSaveDist} disabled={distTotal !== 100} variant="primary" size="sm">Save</Button>
           </div>
         )}
       </div>
@@ -363,7 +368,7 @@ export function TargetSiteDetailPage() {
         {site.urls?.length === 0 ? (
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
             <p className="text-gray-500 mb-3">No target URLs yet. Use bulk import to add URLs and keywords.</p>
-            <button onClick={() => setBulkModal(true)} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Bulk Import</button>
+            <Button onClick={() => setBulkModal(true)} variant="primary">Bulk Import</Button>
           </div>
         ) : (
           site.urls?.map((u: any) => (
@@ -443,7 +448,7 @@ export function TargetSiteDetailPage() {
                     setBulkText(t => t + (t && !t.endsWith('\n') && !t.endsWith(', ') ? ', ' : '') + btn.value);
                   }
                 }}
-                className="px-2 py-1 bg-gray-700 hover:bg-pink-600 rounded text-xs transition-colors"
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors"
                 title={btn.title}
               >
                 {btn.label}
@@ -486,7 +491,7 @@ export function TargetSiteDetailPage() {
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">{bulkText.split('\n').filter(l => l.trim()).length} entries</span>
-            <button onClick={handleBulkImport} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Import</button>
+            <Button onClick={handleBulkImport} variant="primary">Import</Button>
           </div>
         </div>
       </Modal>
@@ -508,7 +513,7 @@ export function TargetSiteDetailPage() {
               <option value="url">URL</option>
             </select>
           </div>
-          <button type="submit" className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Add</button>
+          <Button type="submit" variant="primary" className="w-full">Add</Button>
         </form>
       </Modal>
 
@@ -531,14 +536,14 @@ export function TargetSiteDetailPage() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleUpdateAnchor} className="flex-1 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium">Save</button>
-              <button onClick={async () => {
+              <Button onClick={handleUpdateAnchor} variant="primary" className="flex-1">Save</Button>
+              <Button onClick={async () => {
                 if (!confirm('Delete this anchor?')) return;
                 await api.deleteAnchor(editAnchor.id);
                 toast('Anchor deleted');
                 setEditAnchor(null);
                 load();
-              }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium">Delete</button>
+              }} variant="danger">Delete</Button>
             </div>
           </div>
         )}

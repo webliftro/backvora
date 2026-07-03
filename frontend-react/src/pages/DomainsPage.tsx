@@ -8,21 +8,17 @@ import { Link } from 'react-router-dom';
 import {
   ExternalLink, Trash2, Plus, Upload, Settings, Columns3, RefreshCw, Search,
   ChevronUp, ChevronDown, ChevronsUpDown, ArrowLeft, ArrowRight, Check, X as XIcon,
+  Globe, Mail, FileText, ShieldAlert,
 } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Button, StatusPill, ResultBanner, LoadingState, EmptyState } from '../components/ui';
+import { buttonClasses, statusTone, filterFieldClass } from '../components/styles';
 import type { Domain } from '../types';
 import { DOMAIN_STATUSES } from '../types';
 
 const col = createColumnHelper<Domain>();
-
-const statusColors: Record<string, string> = {
-  new: 'bg-gray-600', analyzing: 'bg-pink-600', analyzed: 'bg-pink-700',
-  contacted: 'bg-yellow-600', replied: 'bg-green-600', negotiating: 'bg-orange-600',
-  deal_closed: 'bg-green-700', rejected: 'bg-red-600', blacklisted: 'bg-red-900',
-};
 
 export default function DomainsPage() {
   const { toast } = useToast();
@@ -97,7 +93,7 @@ export default function DomainsPage() {
   const [bulkTags, setBulkTags] = useState('');
   const [bulkGrabbing, setBulkGrabbing] = useState(false);
   const [bulkGrabProgress, setBulkGrabProgress] = useState<{ processed: number; total: number; contacts: number } | null>(null);
-  const [bulkActionResult, setBulkActionResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [bulkActionResult, setBulkActionResult] = useState<{ ok: boolean; busy?: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadDomains(); loadCategories();
@@ -173,17 +169,17 @@ export default function DomainsPage() {
           <div className="flex items-center gap-1.5 text-xs">
             {count > 0 ? (
               <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded ${hasPrimary ? 'bg-green-900/50 text-green-400 font-medium' : 'bg-yellow-900/40 text-yellow-400'}`}>
-                {hasPrimary ? <Check className="w-3 h-3" /> : null}
+                {hasPrimary ? <Check className="w-4 h-4" /> : null}
                 {count}
               </span>
             ) : hasInfo ? (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-400" title="Has owner/email/telegram info">
-                <Check className="w-3 h-3" />
+                <Check className="w-4 h-4" />
               </span>
             ) : null}
-            {hasEmail && <span title="Has email">📧</span>}
-            {hasForm && <span title="Has contact form">📝</span>}
-            {hasCaptcha && <span title="Has CAPTCHA">⚠️</span>}
+            {hasEmail && <span title="Has email" aria-label="Has email"><Mail className="w-4 h-4 text-gray-400" aria-hidden /></span>}
+            {hasForm && <span title="Has contact form" aria-label="Has contact form"><FileText className="w-4 h-4 text-gray-400" aria-hidden /></span>}
+            {hasCaptcha && <span title="Has CAPTCHA" aria-label="Has CAPTCHA"><ShieldAlert className="w-4 h-4 text-yellow-400" aria-hidden /></span>}
           </div>
         );
       },
@@ -202,7 +198,7 @@ export default function DomainsPage() {
       cell: i => { const v = i.getValue(); if (!v?.length) return '-'; return <div className="flex flex-wrap gap-1">{v.map((t,j) => <span key={j} className="px-1.5 py-0.5 bg-gray-700 rounded text-xs">{t}</span>)}</div>; },
     }),
     col.accessor('status', { header: 'Status', size: 100,
-      cell: i => <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[i.getValue()] || 'bg-gray-700'}`}>{i.getValue()}</span>,
+      cell: i => <StatusPill tone={statusTone(i.getValue())}>{i.getValue()}</StatusPill>,
     }),
     col.accessor('is_competitor', { header: 'Competitor', size: 90, cell: i => i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" /> }),
     col.accessor('is_adult', { header: 'Adult', size: 60, cell: i => i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" /> }),
@@ -292,14 +288,14 @@ export default function DomainsPage() {
         skip_non_adult: csvAdultOnly || undefined,
       });
       setImportProgress('');
-      const parts = [`✅ Added ${r.added} domains`];
+      const parts = [`Added ${r.added} domains`];
       if (r.skipped) parts.push(`${r.skipped} duplicates`);
       if (r.filtered_out) parts.push(`${r.filtered_out} filtered out`);
       parts.push(`${r.total_rows} total rows`);
       setImportResult({ ok: true, message: parts.join(', ') });
       setCsvFile(null); setCsvMinTraffic(''); setCsvMaxTraffic(''); setCsvMinDr(''); setCsvMaxDr('');
       loadDomains();
-    } catch (e: any) { setImportProgress(''); setImportResult({ ok: false, message: `❌ ${e.message}` }); } finally { setImporting(false); }
+    } catch (e: any) { setImportProgress(''); setImportResult({ ok: false, message: e.message }); } finally { setImporting(false); }
   }
 
   async function openPresets() {
@@ -324,7 +320,7 @@ export default function DomainsPage() {
     try {
       const result = await api.bulkGrabContacts();
       setBulkGrabProgress({ processed: result.scanned, total: result.scanned, contacts: result.found });
-      toast(`✓ Found ${result.found} contacts from ${result.scanned} domains scanned`);
+      toast(`Found ${result.found} contacts from ${result.scanned} domains scanned`);
       await loadDomains();
     } catch (e: any) {
       toast(e.message || 'Bulk grab failed', 'error');
@@ -333,45 +329,45 @@ export default function DomainsPage() {
     setTimeout(() => setBulkGrabProgress(null), 3000);
   }
 
-  const ic = "px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm";
+  const ic = filterFieldClass;
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Domains"
         actions={<>
-          <button onClick={openPresets} title="Presets" className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
-            <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Presets</span>
-          </button>
-          <button onClick={bulkGrabAllMissing} disabled={bulkGrabbing} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50">
+          <Button onClick={openPresets} title="Presets" icon={Settings}>
+            <span className="hidden sm:inline">Presets</span>
+          </Button>
+          <Button onClick={bulkGrabAllMissing} disabled={bulkGrabbing}>
             <Search className={`w-4 h-4 ${bulkGrabbing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{bulkGrabbing ? 'Grabbing...' : 'Grab All Missing'}</span>
             <span className="sm:hidden">{bulkGrabbing ? 'Grab...' : 'Grab'}</span>
-          </button>
-          <button onClick={() => setImportOpen(true)} title="Import" className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1">
-            <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Import</span>
-          </button>
-          <Link to="/domains/new" className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium flex items-center gap-1">
+          </Button>
+          <Button onClick={() => setImportOpen(true)} title="Import" icon={Upload}>
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Link to="/domains/new" className={buttonClasses('primary')}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Domain</span><span className="sm:hidden">Add</span>
           </Link>
         </>}
       />
 
       {bulkGrabProgress && (
-        <div className="p-3 bg-green-900/30 border border-green-700 rounded-lg flex items-center gap-3 text-sm">
-          <span>✓ Processed {bulkGrabProgress.processed} domains, found {bulkGrabProgress.contacts} contacts</span>
-        </div>
+        <ResultBanner tone="success">
+          Processed {bulkGrabProgress.processed} domains, found {bulkGrabProgress.contacts} contacts
+        </ResultBanner>
       )}
 
       <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
-        <input type="text" placeholder="Search domain, tags, notes..." value={search} onChange={e => setSearch(e.target.value)} className={`${ic} w-full sm:w-48 focus:outline-none focus:border-pink-500`} />
+        <input type="text" placeholder="Search domain, tags, notes..." value={search} onChange={e => setSearch(e.target.value)} className={`${ic} w-full sm:w-48`} />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Status</option>{DOMAIN_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
         <select value={targetFilter} onChange={e => setTargetFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Targets</option>{targets.map(t => <option key={t}>{t}</option>)}</select>
         <select value={hasBacklink} onChange={e => setHasBacklink(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Backlink?</option><option value="yes">Yes</option><option value="no">No</option></select>
         <select value={hasContacts} onChange={e => setHasContacts(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Contacts?</option><option value="yes">Yes</option><option value="no">No</option></select>
         <select value={linkTypeFilter} onChange={e => setLinkTypeFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Link Types</option>{availableLinkTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
-        <button onClick={clearFilters} className="px-3 py-2 text-gray-400 hover:text-white text-sm shrink-0">Clear</button>
+        <Button onClick={clearFilters} variant="ghost" className="shrink-0">Clear</Button>
       </div>
 
       <div className="flex gap-3 sm:gap-4 items-center flex-wrap text-sm">
@@ -389,10 +385,10 @@ export default function DomainsPage() {
       </div>
 
       {selIds.length > 0 && (
-        <div className="p-3 bg-pink-900/30 border border-pink-700 rounded-lg flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="p-3 bg-pink-600/10 border border-pink-600/30 rounded-lg flex flex-wrap items-center gap-2 sm:gap-4">
           <span className="text-sm">{selIds.length} selected</span>
-          <button onClick={bulkDelete} aria-label="Delete selected domains" className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm flex items-center gap-1"><Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">Delete</span></button>
-          <button onClick={() => setBulkOpen(true)} className="px-3 py-1 bg-pink-600 hover:bg-pink-700 rounded text-sm"><span className="hidden sm:inline">Category/Tags</span><span className="sm:hidden">Edit</span></button>
+          <Button onClick={bulkDelete} aria-label="Delete selected domains" variant="danger" size="sm" icon={Trash2}><span className="hidden sm:inline">Delete</span></Button>
+          <Button onClick={() => setBulkOpen(true)} variant="primary" size="sm"><span className="hidden sm:inline">Category/Tags</span><span className="sm:hidden">Edit</span></Button>
           <button
             disabled={bulkGrabbing}
             onClick={async () => {
@@ -425,17 +421,17 @@ export default function DomainsPage() {
                         const ev = JSON.parse(line.slice(6));
                         if (ev.type === 'start') {
                           totalCount = ev.total;
-                          setBulkActionResult({ ok: true, message: `⏳ Processing ${ev.total} domains...` });
+                          setBulkActionResult({ ok: true, busy: true, message: `Processing ${ev.total} domains...` });
                         } else if (ev.type === 'phase') {
                           lastPhase = ev.phase;
-                          setBulkActionResult({ ok: true, message: `⏳ ${ev.message}` });
+                          setBulkActionResult({ ok: true, busy: true, message: ev.message });
                         } else if (ev.type === 'found') {
                           foundCount++;
-                          setBulkActionResult({ ok: true, message: `⏳ [${ev.progress}/${totalCount}] Found ${ev.email} for ${ev.domain} (${ev.method})` });
+                          setBulkActionResult({ ok: true, busy: true, message: `[${ev.progress}/${totalCount}] Found ${ev.email} for ${ev.domain} (${ev.method})` });
                         } else if (ev.type === 'miss') {
-                          setBulkActionResult({ ok: true, message: `⏳ [${ev.progress}/${totalCount}] No contact for ${ev.domain} (${lastPhase})` });
+                          setBulkActionResult({ ok: true, busy: true, message: `[${ev.progress}/${totalCount}] No contact for ${ev.domain} (${lastPhase})` });
                         } else if (ev.type === 'done') {
-                          const msg = `✅ Done! Found ${ev.found} contacts out of ${ev.total} domains (${ev.missed} without contact)`;
+                          const msg = `Done! Found ${ev.found} contacts out of ${ev.total} domains (${ev.missed} without contact)`;
                           setBulkActionResult({ ok: true, message: msg });
                           toast(msg);
                           loadDomains();
@@ -444,12 +440,12 @@ export default function DomainsPage() {
                     }
                   }
                 }
-              } catch (e: any) { toast(e.message, 'error'); setBulkActionResult({ ok: false, message: `❌ ${e.message}` }); }
+              } catch (e: any) { toast(e.message, 'error'); setBulkActionResult({ ok: false, message: e.message }); }
               finally { setBulkGrabbing(false); }
             }}
-            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-sm flex items-center gap-1 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-sm rounded-md bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            <Search className={`w-3 h-3 ${bulkGrabbing ? 'animate-spin' : ''}`} />
+            <Search className={`w-4 h-4 ${bulkGrabbing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{bulkGrabbing ? 'Grabbing...' : 'Grab Contacts'}</span>
             <span className="sm:hidden">{bulkGrabbing ? '...' : 'Grab'}</span>
           </button>
@@ -463,34 +459,36 @@ export default function DomainsPage() {
               setBulkActionResult(null);
               try {
                 const r = await api.classifyAdult(selIds);
-                const msg = `✅ ${r.adult} adult, ${r.non_adult} non-adult, ${r.unclear} unclear (${r.scanned} checked)`;
+                const msg = `${r.adult} adult, ${r.non_adult} non-adult, ${r.unclear} unclear (${r.scanned} checked)`;
                 toast(msg);
                 setBulkActionResult({ ok: true, message: msg });
                 loadDomains();
-              } catch (err: any) { toast(err.message, 'error'); setBulkActionResult({ ok: false, message: `❌ ${err.message}` }); }
+              } catch (err: any) { toast(err.message, 'error'); setBulkActionResult({ ok: false, message: err.message }); }
               finally { btn.disabled = false; btn.innerText = origText; }
             }}
-            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm disabled:opacity-50"
+            className="inline-flex items-center justify-center px-3 py-1 text-sm rounded-md bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
             Check Adult
           </button>
-          <button onClick={() => { setRowSelection({}); setBulkActionResult(null); }} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm ml-auto">Clear</button>
+          <Button onClick={() => { setRowSelection({}); setBulkActionResult(null); }} size="sm" className="ml-auto">Clear</Button>
         </div>
       )}
       {bulkActionResult && (
-        <div className={`p-3 rounded-lg flex items-center justify-between ${bulkActionResult.ok ? 'bg-emerald-900/30 border border-emerald-700' : 'bg-red-900/30 border border-red-700'}`}>
-          <span className="text-sm">{bulkActionResult.message}</span>
-          <button onClick={() => setBulkActionResult(null)} aria-label="Dismiss message" className="text-gray-400 hover:text-white ml-2"><XIcon className="w-4 h-4" /></button>
-        </div>
+        <ResultBanner
+          tone={bulkActionResult.busy ? 'progress' : bulkActionResult.ok ? 'success' : 'error'}
+          onDismiss={() => setBulkActionResult(null)}
+        >
+          {bulkActionResult.message}
+        </ResultBanner>
       )}
 
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-3">
           <span className="text-sm text-gray-400">{filtered.length} rows</span>
           <div className="relative">
-            <button onClick={() => setColMenuOpen(v => !v)} aria-label="Manage columns" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm flex items-center gap-1"><Columns3 className="w-4 h-4" /> <span className="hidden sm:inline">Columns</span></button>
+            <Button onClick={() => setColMenuOpen(v => !v)} aria-label="Manage columns" size="sm" icon={Columns3}><span className="hidden sm:inline">Columns</span></Button>
             {colMenuOpen && (
-              <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 py-1 min-w-[160px] max-h-[300px] overflow-y-auto">
+              <div className="absolute right-0 mt-1 glass border border-gray-700 rounded-md z-10 py-1 min-w-[160px] max-h-[300px] overflow-y-auto">
                 {table.getAllLeafColumns().filter(c => c.id !== 'select').map(c => (
                   <label key={c.id} className="flex items-center px-3 py-1 hover:bg-gray-700 cursor-pointer text-sm">
                     <input type="checkbox" checked={c.getIsVisible()} onChange={c.getToggleVisibilityHandler()} className="mr-2" />
@@ -513,7 +511,7 @@ export default function DomainsPage() {
                         {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                         {h.column.getIsSorted() === 'asc' ? <ChevronUp className="w-3 h-3" /> : h.column.getIsSorted() === 'desc' ? <ChevronDown className="w-3 h-3" /> : h.column.getCanSort() ? <ChevronsUpDown className="w-3 h-3 text-gray-500" /> : null}
                       </div>
-                      {h.column.getCanResize() && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/50" />}
+                      {h.column.getCanResize() && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-gray-500/40" />}
                     </th>
                   ))}
                   <th className="px-3 py-2.5 w-20"></th>
@@ -521,14 +519,14 @@ export default function DomainsPage() {
               ))}
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan={99} className="px-4 py-8 text-center text-gray-500">Loading...</td></tr> :
-               table.getRowModel().rows.length === 0 ? <tr><td colSpan={99} className="px-4 py-8 text-center text-gray-500">No domains</td></tr> :
+              {loading ? <tr><td colSpan={99}><LoadingState label="Loading domains..." /></td></tr> :
+               table.getRowModel().rows.length === 0 ? <tr><td colSpan={99}><EmptyState icon={Globe} title="No domains" hint="Import domains or add one to get started" /></td></tr> :
                table.getRowModel().rows.map(r => (
-                <tr key={r.id} className={`border-t border-gray-700 hover:bg-gray-700/50 ${r.getIsSelected() ? 'bg-pink-900/20' : ''}`}>
+                <tr key={r.id} className={`border-t border-gray-700 hover:bg-gray-700/50 ${r.getIsSelected() ? 'bg-pink-600/10' : ''}`}>
                   {r.getVisibleCells().map(c => <td key={c.id} className="px-3 py-2.5 text-sm" style={{ width: c.column.getSize() }}>{flexRender(c.column.columnDef.cell, c.getContext())}</td>)}
                   <td className="px-3 py-2.5 flex gap-2">
-                    <button onClick={() => analyzeDomain(r.original.id)} disabled={analyzingIds.has(r.original.id)} title="Update metrics" className="text-gray-400 hover:text-pink-400 disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${analyzingIds.has(r.original.id) ? 'animate-spin' : ''}`} /></button>
-                    <button onClick={() => setDeleteConfirm({ ids: [r.original.id], label: r.original.domain })} title="Delete domain" className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => analyzeDomain(r.original.id)} disabled={analyzingIds.has(r.original.id)} title="Update metrics" className="text-gray-400 hover:text-pink-400 disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${analyzingIds.has(r.original.id) ? 'animate-spin' : ''}`} /></button>
+                    <button onClick={() => setDeleteConfirm({ ids: [r.original.id], label: r.original.domain })} title="Delete domain" className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               ))}
@@ -545,8 +543,8 @@ export default function DomainsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <span className="text-sm text-gray-400">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-{Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filtered.length)} of {filtered.length}</span>
             <div className="flex gap-2">
-              <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous page" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><ArrowLeft className="w-3 h-3" /> <span className="hidden sm:inline">Prev</span></button>
-              <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} aria-label="Next page" className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-50 flex items-center gap-1"><span className="hidden sm:inline">Next</span> <ArrowRight className="w-3 h-3" /></button>
+              <Button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} aria-label="Previous page" size="sm" icon={ArrowLeft}><span className="hidden sm:inline">Prev</span></Button>
+              <Button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} aria-label="Next page" size="sm"><span className="hidden sm:inline">Next</span> <ArrowRight className="w-4 h-4" /></Button>
             </div>
           </div>
         </div>
@@ -564,8 +562,8 @@ export default function DomainsPage() {
             <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={8} placeholder="One domain per line..." className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 font-mono text-sm" />
             <label className="flex items-center gap-2 mt-3"><input type="checkbox" checked={importComp} onChange={e => setImportComp(e.target.checked)} /><span className="text-sm">Mark as competitors</span></label>
             <div className="flex justify-end gap-3 mt-4">
-              <button type="button" onClick={() => setImportOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Import</button>
+              <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary">Import</Button>
             </div>
           </form>
         ) : importTab === 'csv' ? (
@@ -596,13 +594,13 @@ export default function DomainsPage() {
               <span className="text-sm text-gray-400">Adult domains only</span>
               <span className="text-xs text-gray-600">(filters by domain name keywords)</span>
             </label>
-            {importProgress && <p className="text-xs text-pink-400 mb-3 animate-pulse">{importProgress}</p>}
-            {importResult && <p className={`text-sm mb-3 p-2 rounded ${importResult.ok ? 'bg-emerald-900/40 text-emerald-300' : 'bg-red-900/40 text-red-300'}`}>{importResult.message}</p>}
+            {importProgress && <ResultBanner tone="progress" className="mb-3">{importProgress}</ResultBanner>}
+            {importResult && <ResultBanner tone={importResult.ok ? 'success' : 'error'} className="mb-3">{importResult.message}</ResultBanner>}
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setImportOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-              <button type="submit" disabled={importing} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium disabled:opacity-50">
+              <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" disabled={importing}>
                 {importing ? 'Importing...' : 'Import'}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -613,10 +611,10 @@ export default function DomainsPage() {
             <div className="mb-4"><label className="block text-sm text-gray-400 mb-2">Ahrefs CSV File</label>
               <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files?.[0] || null)} required className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" /></div>
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setImportOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-              <button type="submit" disabled={importing} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium disabled:opacity-50">
+              <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" disabled={importing}>
                 {importing ? 'Importing...' : 'Import'}
-              </button>
+              </Button>
             </div>
           </form>
         )}
@@ -628,8 +626,8 @@ export default function DomainsPage() {
         <div className="mb-4"><label className="block text-sm text-gray-400 mb-2">Tags (one per line)</label>
           <textarea value={presetTags} onChange={e => setPresetTags(e.target.value)} rows={5} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500 font-mono text-sm" /></div>
         <div className="flex justify-end gap-3">
-          <button onClick={() => setPresetsOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-          <button onClick={savePresets} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Save</button>
+          <Button onClick={() => setPresetsOpen(false)}>Cancel</Button>
+          <Button onClick={savePresets} variant="primary">Save</Button>
         </div>
       </Modal>
 
@@ -637,8 +635,8 @@ export default function DomainsPage() {
       <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirm Delete" maxWidth="max-w-md">
         <p className="text-sm text-gray-300 mb-6">Are you sure you want to delete <strong>{deleteConfirm?.label}</strong>? This cannot be undone.</p>
         <div className="flex justify-end gap-3">
-          <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-          <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium">Delete</button>
+          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={confirmDelete} variant="danger">Delete</Button>
         </div>
       </Modal>
 
@@ -651,8 +649,8 @@ export default function DomainsPage() {
           <div className="mb-4"><label className="block text-sm text-gray-400 mb-2">Tags</label>
             <input type="text" value={bulkTags} onChange={e => setBulkTags(e.target.value)} placeholder="tag1, tag2" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-pink-500" /></div>
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setBulkOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium">Apply</button>
+            <Button onClick={() => setBulkOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Apply</Button>
           </div>
         </form>
       </Modal>

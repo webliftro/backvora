@@ -9,20 +9,8 @@ import ReactMarkdown from 'react-markdown';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-gray-600',
-  content_ready: 'bg-blue-600',
-  pending_review: 'bg-amber-600',
-  sent: 'bg-yellow-600',
-  payment_sent: 'bg-teal-600',
-  rejected: 'bg-red-600',
-  published: 'bg-purple-600',
-  paid: 'bg-orange-600',
-  live: 'bg-green-600',
-  offline: 'bg-red-600',
-  monitored: 'bg-purple-600',
-};
+import { StatusPill } from '../components/ui';
+import { statusTone } from '../components/styles';
 
 const anchorColors: Record<string, string> = {
   brand: 'bg-blue-600',
@@ -398,20 +386,11 @@ export default function CampaignDetailPage() {
             <h1 className="text-xl font-semibold tracking-tight flex items-center gap-3 flex-wrap">
               {campaign.name}
               {isAuto ? (
-                <span className="px-2 py-1 rounded text-sm font-medium bg-emerald-600 flex items-center gap-1">
-                  <Zap className="w-3.5 h-3.5" />Auto
-                </span>
+                <StatusPill tone="success"><Zap className="w-4 h-4" />Auto</StatusPill>
               ) : (
-                <span className="px-2 py-1 rounded text-sm font-medium bg-gray-600">Manual</span>
+                <StatusPill tone="neutral">Manual</StatusPill>
               )}
-              <span
-                className={`px-2 py-1 rounded text-sm font-medium ${
-                  campaign.status === 'active' ? 'bg-green-600' :
-                  campaign.status === 'paused' ? 'bg-yellow-600' : 'bg-gray-600'
-                }`}
-              >
-                {campaign.status}
-              </span>
+              <StatusPill tone={statusTone(campaign.status)}>{campaign.status}</StatusPill>
             </h1>
             <p className="text-gray-400 mt-1">{campaign.target_site}</p>
           </div>
@@ -596,7 +575,7 @@ export default function CampaignDetailPage() {
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
                     <div
-                      className="bg-pink-600 h-full rounded-full transition-all"
+                      className="bg-gray-400 h-full rounded-full transition-all"
                       style={{ width: `${Math.min(100, ((campaign.budget_spent || 0) / campaign.budget_total) * 100)}%` }}
                     />
                   </div>
@@ -717,7 +696,7 @@ export default function CampaignDetailPage() {
             <div className="space-y-2">
               {campaign.orders.slice(0, 5).map((order: any) => (
                 <div key={order.id} className="flex items-center gap-3 text-sm bg-gray-800/50 rounded px-3 py-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[order.status] || 'bg-gray-600'}`}>{order.status}</span>
+                  <StatusPill tone={statusTone(order.status)}>{order.status}</StatusPill>
                   <span className="text-gray-300">{order.domain}</span>
                   <span className="text-gray-500">{order.link_type}</span>
                   <span className="text-gray-500">{order.price ? `$${order.price}` : '-'}</span>
@@ -764,7 +743,7 @@ export default function CampaignDetailPage() {
                   <span className="px-2 py-1 bg-yellow-600/30 rounded text-yellow-300">Topical {targetSiteData.anchor_topical_pct}%</span>
                   <span className="px-2 py-1 bg-green-600/30 rounded text-green-300">Generic {targetSiteData.anchor_generic_pct}%</span>
                   <span className="px-2 py-1 bg-red-600/30 rounded text-red-300">Exact {targetSiteData.anchor_exact_pct}%</span>
-                  <span className="px-2 py-1 bg-purple-600/30 rounded text-purple-300">URL {targetSiteData.anchor_url_pct}%</span>
+                  <span className="px-2 py-1 bg-teal-600/30 rounded text-teal-300">URL {targetSiteData.anchor_url_pct}%</span>
                 </div>
               </div>
 
@@ -903,7 +882,7 @@ export default function CampaignDetailPage() {
                   {bulkAdding ? 'Adding...' : `Add ${Object.keys(selectedReady).length} to Campaign`}
                 </button>
               )}
-              <button onClick={() => loadReadyDomains()} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 rounded text-sm">Refresh</button>
+              <button onClick={() => loadReadyDomains()} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">Refresh</button>
             </div>
           </div>
 
@@ -989,7 +968,7 @@ export default function CampaignDetailPage() {
                                 });
                               }}
                               onDoubleClick={() => openOrderModal(d, lt.type, lt.price)}
-                              className={`px-2 py-1 rounded text-xs transition-colors ${selected ? 'bg-pink-600 ring-2 ring-pink-400' : 'bg-gray-700 hover:bg-pink-600'}`}
+                              className={`px-2 py-1 rounded text-xs transition-colors ${selected ? 'bg-pink-600/15 text-pink-300 ring-1 ring-inset ring-pink-600/30' : 'bg-gray-700 hover:bg-gray-600'}`}
                             >
                               {selected && '✓ '}{lt.type} {lt.price && `($${lt.price})`}{lt.duration && ` / ${lt.duration}mo`}
                             </button>
@@ -1031,7 +1010,7 @@ export default function CampaignDetailPage() {
                     }
                   }
                 }}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 Process All Drafts
               </button>
@@ -1074,7 +1053,7 @@ export default function CampaignDetailPage() {
                         </Link>
                         <span className="text-sm text-gray-400">{order.link_type}</span>
                         <span className="text-sm">{order.price ? `$${order.price}` : '-'}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[order.status] || 'bg-gray-600'}`}>{order.status}</span>
+                        <StatusPill tone={statusTone(order.status)}>{order.status}</StatusPill>
                         <span className="text-xs text-gray-500">{linkCount} link{linkCount !== 1 ? 's' : ''}</span>
                         {order.live_url && (
                           <a href={order.live_url} target="_blank" rel="noopener" className="text-pink-400 hover:underline text-xs flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -1631,7 +1610,7 @@ export default function CampaignDetailPage() {
             <label className="block text-sm text-gray-400 mb-2">Campaign Mode</label>
             <div className="flex gap-2">
               <button type="button" onClick={() => setEditForm({ ...editForm, mode: 'manual' })}
-                className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${editForm.mode === 'manual' ? 'border-pink-500 bg-pink-600/20 text-white' : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'}`}>
+                className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${editForm.mode === 'manual' ? 'border-pink-500 bg-pink-600/15 text-white' : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'}`}>
                 Manual
               </button>
               <button type="button" onClick={() => setEditForm({ ...editForm, mode: 'auto' })}
@@ -1762,10 +1741,10 @@ export default function CampaignDetailPage() {
                   try {
                     const result = await api.verifyOrder(verifyModal.order_id, verifyUrl);
                     if (result.verified) {
-                      toast(`✅ Verified live: ${result.live_url}`);
+                      toast(`Verified live: ${result.live_url}`);
                     } else {
                       const reason = result.reason || result.status || (result.issues?.join(', ')) || 'Unknown error';
-                      toast(`❌ Verification failed: ${reason}`, 'error');
+                      toast(`Verification failed: ${reason}`, 'error');
                     }
                     setVerifyModal(null);
                     loadCampaign();
@@ -1816,12 +1795,12 @@ export default function CampaignDetailPage() {
                   Pick from {anchorPool.site?.name || 'Anchor Pool'}
                 </label>
                 {anchorPool.suggestion && (
-                  <div className="bg-purple-900/30 border border-purple-700 rounded p-2 mb-2 text-xs">
+                  <div className="bg-gray-800 border border-gray-700 rounded p-2 mb-2 text-xs">
                     <span className="text-gray-400">Suggested: </span>
                     <button type="button" onClick={() => setLinkForm({
                       anchor_text: anchorPool.suggestion.text, anchor_text_id: anchorPool.suggestion.anchor_id,
                       anchor_type: anchorPool.suggestion.anchor_type, target_url: anchorPool.suggestion.target_url, article_topic: '',
-                    })} className="text-purple-300 hover:text-white font-medium">
+                    })} className="text-teal-300 hover:text-white font-medium">
                       "{anchorPool.suggestion.text}" <span className={`px-1 py-0.5 rounded text-xs ml-1 ${anchorColors[anchorPool.suggestion.anchor_type] || 'bg-gray-600'}`}>{anchorPool.suggestion.anchor_type}</span>
                     </button>
                   </div>
@@ -1836,7 +1815,7 @@ export default function CampaignDetailPage() {
                           return (
                             <button key={a.id} type="button" onClick={() => setLinkForm({
                               anchor_text: a.text, anchor_text_id: a.id, anchor_type: a.anchor_type, target_url: u.url, article_topic: '',
-                            })} className={`px-2 py-0.5 rounded transition-all ${selected ? 'ring-2 ring-pink-400 bg-pink-600' : anchorColors[a.anchor_type] || 'bg-gray-600'} hover:ring-1 ring-white/30`}>
+                            })} className={`px-2 py-0.5 rounded transition-all ${anchorColors[a.anchor_type] || 'bg-gray-600'} ${selected ? 'ring-2 ring-white/80' : 'hover:ring-1 ring-white/30'}`}>
                               {a.text} {a.times_used > 0 && <span className="opacity-60">({a.times_used})</span>}
                             </button>
                           );
@@ -1911,13 +1890,13 @@ export default function CampaignDetailPage() {
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Pick Anchor from Pool</label>
                 {anchorPool.suggestion && (
-                  <div className="bg-purple-900/30 border border-purple-700 rounded p-2 mb-2 text-xs">
+                  <div className="bg-gray-800 border border-gray-700 rounded p-2 mb-2 text-xs">
                     <span className="text-gray-400">Suggested: </span>
                     <button type="button" onClick={() => setOrderModal((m: any) => ({
                       ...m, anchor_text: anchorPool.suggestion.text, anchor_text_id: anchorPool.suggestion.anchor_id,
                       anchor_type: anchorPool.suggestion.anchor_type, target_url: anchorPool.suggestion.target_url,
-                    }))} className="text-purple-300 hover:text-white font-medium">
-                      "{anchorPool.suggestion.text}" <span className={`px-1 py-0.5 rounded text-xs ml-1 ${({'brand':'bg-blue-600','topical':'bg-purple-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[anchorPool.suggestion.anchor_type] || 'bg-gray-600'}`}>{anchorPool.suggestion.anchor_type}</span>
+                    }))} className="text-teal-300 hover:text-white font-medium">
+                      "{anchorPool.suggestion.text}" <span className={`px-1 py-0.5 rounded text-xs ml-1 ${({'brand':'bg-blue-600','topical':'bg-teal-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[anchorPool.suggestion.anchor_type] || 'bg-gray-600'}`}>{anchorPool.suggestion.anchor_type}</span>
                     </button>
                     <span className="text-gray-500 ml-1">→ {anchorPool.suggestion.target_url}</span>
                   </div>
@@ -1932,7 +1911,7 @@ export default function CampaignDetailPage() {
                           return (
                             <button key={a.id} type="button" onClick={() => setOrderModal((m: any) => ({
                               ...m, anchor_text: a.text, anchor_text_id: a.id, anchor_type: a.anchor_type, target_url: u.url,
-                            }))} className={`px-2 py-0.5 rounded transition-all ${selected ? 'ring-2 ring-pink-400 bg-pink-600' : ({'brand':'bg-blue-600','topical':'bg-purple-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[a.anchor_type] || 'bg-gray-600'} hover:ring-1 ring-white/30`}>
+                            }))} className={`px-2 py-0.5 rounded transition-all ${({'brand':'bg-blue-600','topical':'bg-teal-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[a.anchor_type] || 'bg-gray-600'} ${selected ? 'ring-2 ring-white/80' : 'hover:ring-1 ring-white/30'}`}>
                               {a.text} {a.times_used > 0 && <span className="opacity-60">({a.times_used})</span>}
                             </button>
                           );
@@ -1960,7 +1939,7 @@ export default function CampaignDetailPage() {
 
             <div>
               <label className="block text-sm text-gray-400 mb-1">
-                Anchor Text {orderModal.anchor_type && <span className={`ml-1 px-1.5 py-0.5 rounded text-xs ${({'brand':'bg-blue-600','topical':'bg-purple-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[orderModal.anchor_type] || 'bg-gray-600'}`}>{orderModal.anchor_type}</span>}
+                Anchor Text {orderModal.anchor_type && <span className={`ml-1 px-1.5 py-0.5 rounded text-xs ${({'brand':'bg-blue-600','topical':'bg-teal-600','generic':'bg-gray-600','exact':'bg-green-600','url':'bg-yellow-600'} as any)[orderModal.anchor_type] || 'bg-gray-600'}`}>{orderModal.anchor_type}</span>}
               </label>
               <input type="text" value={orderModal.anchor_text} onChange={(e) => setOrderModal({ ...orderModal, anchor_text: e.target.value, anchor_text_id: '' })} placeholder="Type custom or pick from pool above" className={ic} />
             </div>

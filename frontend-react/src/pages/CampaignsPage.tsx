@@ -4,6 +4,8 @@ import { Plus, Target, TrendingUp, DollarSign, Package, Zap, ChevronDown, Chevro
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { PageHeader, Button, StatusPill, LoadingState, EmptyState } from '../components/ui';
+import { statusTone } from '../components/styles';
 
 interface Campaign {
   id: string;
@@ -22,12 +24,6 @@ interface Campaign {
   consecutive_approvals?: number;
   approval_threshold?: number;
 }
-
-const statusColors: Record<string, string> = {
-  active: 'bg-green-600',
-  paused: 'bg-yellow-600',
-  completed: 'bg-gray-600',
-};
 
 const LINK_TYPES = ['Guest Post', 'Header', 'Footer', 'Navbar', 'Sidebar', 'Sidebar Friends', 'Toplist', 'Sticky Post', 'Topbar', 'Menu tab', 'Model+Content tab'];
 
@@ -121,40 +117,31 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
-            <Target className="w-5 h-5 text-pink-500" />
-            Campaigns
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">Manage your link building campaigns</p>
-        </div>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium flex items-center gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">New Campaign</span>
-          <span className="sm:hidden">New</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Campaigns"
+        description="Manage your link building campaigns"
+        actions={
+          <Button onClick={() => setCreateOpen(true)} variant="primary" icon={Plus}>
+            <span className="hidden sm:inline">New Campaign</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        }
+      />
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading campaigns...</div>
+        <LoadingState label="Loading campaigns..." />
       ) : campaigns.length === 0 ? (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-          <Target className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-400 mb-2">No campaigns yet</h3>
-          <p className="text-gray-500 text-sm mb-6">
-            Create your first campaign to start organizing your link building efforts
-          </p>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg font-medium inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create Campaign
-          </button>
+        <div className="bg-gray-800 rounded-lg border border-gray-700">
+          <EmptyState
+            icon={Target}
+            title="No campaigns yet"
+            hint="Create your first campaign to start organizing your link building efforts"
+            action={
+              <Button onClick={() => setCreateOpen(true)} variant="primary" icon={Plus}>
+                Create Campaign
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -173,19 +160,11 @@ export default function CampaignsPage() {
                 </div>
                 <div className="flex items-center gap-1.5 ml-2">
                   {campaign.mode === 'auto' ? (
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-600 flex items-center gap-1">
-                      <Zap className="w-3 h-3" />Auto
-                    </span>
+                    <StatusPill tone="success"><Zap className="w-4 h-4" />Auto</StatusPill>
                   ) : (
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-600">Manual</span>
+                    <StatusPill tone="neutral">Manual</StatusPill>
                   )}
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      statusColors[campaign.status] || 'bg-gray-600'
-                    }`}
-                  >
-                    {campaign.status}
-                  </span>
+                  <StatusPill tone={statusTone(campaign.status)}>{campaign.status}</StatusPill>
                 </div>
               </div>
 
@@ -250,7 +229,7 @@ export default function CampaignsPage() {
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-pink-600 h-full rounded-full transition-all"
+                      className="bg-gray-400 h-full rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, (campaign.spent / campaign.budget) * 100)}%`,
                       }}
@@ -318,7 +297,7 @@ export default function CampaignsPage() {
                 onClick={() => setFormData({ ...formData, mode: 'manual' })}
                 className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
                   formData.mode === 'manual'
-                    ? 'border-pink-500 bg-pink-600/20 text-white'
+                    ? 'border-pink-500 bg-pink-600/15 text-white'
                     : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
                 }`}
               >
@@ -478,19 +457,8 @@ export default function CampaignsPage() {
           </div>
 
           <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setCreateOpen(false)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium"
-            >
-              Create Campaign
-            </button>
+            <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Create Campaign</Button>
           </div>
         </form>
       </Modal>

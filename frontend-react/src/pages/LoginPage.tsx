@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link2 } from 'lucide-react';
+import { Button } from '../components/ui';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -36,10 +37,9 @@ export default function LoginPage() {
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" />
-          <button type="submit" disabled={loading}
-            className="w-full py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors">
+          <Button type="submit" disabled={loading} variant="primary" className="w-full">
             {loading ? '...' : 'Sign In'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -3,6 +3,8 @@ import { Mail, Reply, Send, Search, RefreshCw, X as XIcon, Loader, Sparkles } fr
 import { api } from '../api';
 import { useToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { PageHeader, Button, EmptyState, LoadingState } from '../components/ui';
+import { filterFieldClass } from '../components/styles';
 import DOMPurify from 'dompurify';
 
 interface Email {
@@ -203,42 +205,29 @@ export default function InboxPage() {
   return (
     <div className="min-h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Mail className="w-5 h-5 text-pink-500" />
-          <h1 className="text-xl font-semibold tracking-tight">Inbox</h1>
-          <span className="text-sm text-gray-400">
-            ({emails.filter(e => !e.is_read).length} unread)
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleScanReplies}
-            disabled={scanning}
-            className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 text-sm"
-            title="Scan unread replies and extract contact info, prices, and payment methods using AI"
-          >
-            <Sparkles className={`w-4 h-4 ${scanning ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">{scanning ? 'Scanning...' : 'Scan Replies'}</span>
-            <span className="sm:hidden">{scanning ? 'Scan...' : 'Scan'}</span>
-          </button>
-          <button
-            onClick={() => setComposeOpen(true)}
-            aria-label="Compose email"
-            className="px-3 sm:px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm"
-          >
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">Compose</span>
-          </button>
-          <button
-            onClick={loadEmails}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+      <div className="mb-6">
+        <PageHeader
+          title="Inbox"
+          description={`${emails.filter(e => !e.is_read).length} unread`}
+          actions={<>
+            <button
+              onClick={handleScanReplies}
+              disabled={scanning}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              title="Scan unread replies and extract contact info, prices, and payment methods using AI"
+            >
+              <Sparkles className={`w-4 h-4 ${scanning ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">{scanning ? 'Scanning...' : 'Scan Replies'}</span>
+              <span className="sm:hidden">{scanning ? 'Scan...' : 'Scan'}</span>
+            </button>
+            <Button onClick={() => setComposeOpen(true)} aria-label="Compose email" variant="primary" icon={Send}>
+              <span className="hidden sm:inline">Compose</span>
+            </Button>
+            <Button onClick={loadEmails} variant="ghost" title="Refresh" aria-label="Refresh inbox">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </>}
+        />
       </div>
 
       {/* Filters */}
@@ -250,7 +239,7 @@ export default function InboxPage() {
             placeholder="Search emails..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm"
+            className={`${filterFieldClass} w-full pl-10`}
           />
         </div>
         
@@ -267,12 +256,12 @@ export default function InboxPage() {
 
       {/* Scan Results */}
       {scanResult && scanResult.processed > 0 && (
-        <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+        <div className="p-4 bg-gray-800 border border-gray-700 rounded-lg">
           <div className="text-sm font-medium mb-2">Parsed {scanResult.processed} replies:</div>
           <div className="space-y-1">
             {scanResult.results.map((r: any, i: number) => (
               <div key={i} className="text-xs text-gray-300">
-                <span className="text-purple-400 font-medium">{r.domain}</span>
+                <span className="text-teal-400 font-medium">{r.domain}</span>
                 {r.error ? (
                   <span className="text-red-400 ml-2">Error: {r.error}</span>
                 ) : (
@@ -290,12 +279,10 @@ export default function InboxPage() {
         <div className={`w-full lg:w-1/3 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden flex flex-col lg:max-h-none ${mobileShowDetail ? 'hidden lg:flex' : 'flex min-h-[400px]'}`}>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <Loader className="w-6 h-6 animate-spin" />
-              </div>
+              <LoadingState label="Loading emails..." className="h-full" />
             ) : emails.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                No emails found
+              <div className="flex items-center justify-center h-full">
+                <EmptyState icon={Mail} title="No emails found" />
               </div>
             ) : (
               <div className="divide-y divide-gray-700">
@@ -304,7 +291,7 @@ export default function InboxPage() {
                     key={email.id}
                     onClick={() => selectEmail(email)}
                     className={`p-4 cursor-pointer transition-colors ${
-                      selectedId === email.id ? 'bg-pink-600/20 ring-1 ring-pink-500/50' : 'hover:bg-gray-700/50'
+                      selectedId === email.id ? 'bg-pink-600/15 ring-1 ring-pink-500/30' : 'hover:bg-gray-700/50'
                     } ${!email.is_read ? 'border-l-2 border-pink-500' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
@@ -331,9 +318,7 @@ export default function InboxPage() {
         {/* Email Detail */}
         <div className={`flex-1 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden flex flex-col ${!mobileShowDetail ? 'hidden lg:flex' : 'flex'}`}>
           {detailLoading ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <Loader className="w-6 h-6 animate-spin" />
-            </div>
+            <LoadingState label="Loading email..." className="h-full" />
           ) : !selectedEmail ? (
             <div className="flex items-center justify-center h-full text-gray-500">
               <div className="text-center">
@@ -381,13 +366,9 @@ export default function InboxPage() {
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => setShowReply(!showReply)}
-                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm"
-                  >
-                    <Reply className="w-4 h-4" />
+                  <Button onClick={() => setShowReply(!showReply)} variant="primary" icon={Reply}>
                     Reply
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -419,17 +400,8 @@ export default function InboxPage() {
                   />
                   
                   <div className="mt-3 flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowReply(false)}
-                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleReply}
-                      disabled={replying || !replyBody.trim()}
-                      className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <Button onClick={() => setShowReply(false)}>Cancel</Button>
+                    <Button onClick={handleReply} disabled={replying || !replyBody.trim()} variant="primary">
                       {replying ? (
                         <>
                           <Loader className="w-4 h-4 animate-spin" />
@@ -441,7 +413,7 @@ export default function InboxPage() {
                           Send Reply
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -487,16 +459,11 @@ export default function InboxPage() {
           </div>
           
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              onClick={() => setComposeOpen(false)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            <button
+            <Button onClick={() => setComposeOpen(false)}>Cancel</Button>
+            <Button
               onClick={handleCompose}
               disabled={composing || !composeTo.trim() || !composeSubject.trim() || !composeBody.trim()}
-              className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="primary"
             >
               {composing ? (
                 <>
@@ -509,7 +476,7 @@ export default function InboxPage() {
                   Send Email
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

@@ -20,11 +20,11 @@ export default function Modal({ open, onClose, title, children, maxWidth = 'max-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-label={title}
-        className={`bg-gray-800 rounded-lg w-full ${maxWidth} border border-gray-700 shadow-2xl shadow-black/40 max-h-[90vh] overflow-y-auto`}
+        className={`glass rounded-lg w-full ${maxWidth} border border-gray-700 max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 px-4 sm:px-6 pt-4 sm:pt-5">
