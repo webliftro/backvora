@@ -49,11 +49,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth()
   return (
     <div className="flex flex-col h-full">
-      <NavLink to="/" onClick={onNavigate} className="flex items-center gap-2 px-4 h-14 shrink-0">
-        <span className="flex items-center justify-center w-7 h-7">
-          <Link2 className="w-5 h-5 text-pink-500" />
+      <NavLink to="/" onClick={onNavigate} className="brand-logo flex items-center gap-2 px-4 h-14 shrink-0">
+        <span className="brand-logo-mark flex items-center justify-center w-7 h-7">
+          <Link2 className="brand-logo-icon w-5 h-5 text-pink-500" />
         </span>
-        <span className="text-[15px] font-semibold tracking-tight">BackVora</span>
+        <span className="brand-logo-word text-[15px] font-semibold tracking-tight">BackVora</span>
       </NavLink>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4 space-y-4">
@@ -121,9 +121,11 @@ export default function Layout() {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <NavLink to="/" className="flex items-center gap-2">
-          <Link2 className="w-5 h-5 text-pink-500" />
-          <span className="text-[15px] font-semibold tracking-tight">BackVora</span>
+        <NavLink to="/" className="brand-logo flex items-center gap-2">
+          <span className="brand-logo-mark flex items-center justify-center w-7 h-7">
+            <Link2 className="brand-logo-icon w-5 h-5 text-pink-500" />
+          </span>
+          <span className="brand-logo-word text-[15px] font-semibold tracking-tight">BackVora</span>
         </NavLink>
       </header>
 

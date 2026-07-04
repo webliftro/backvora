@@ -9,9 +9,11 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Nav */}
       <nav className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <Link2 className="w-5 h-5 text-pink-500" />
-          <span className="ml-2 text-lg font-semibold text-white">BackVora</span>
+        <div className="brand-logo flex items-center">
+          <span className="brand-logo-mark flex items-center justify-center w-7 h-7">
+            <Link2 className="brand-logo-icon w-5 h-5 text-pink-500" />
+          </span>
+          <span className="brand-logo-word ml-2 text-lg font-semibold text-white">BackVora</span>
         </div>
         <div>
           {user ? (
@@ -36,8 +38,8 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-center mb-6">
-            <div className="bg-pink-500/10 border border-pink-500/20 rounded-full p-4">
-              <Link2 className="w-10 h-10 text-pink-500" />
+            <div className="brand-logo-mark bg-pink-500/10 border border-pink-500/20 rounded-full p-4">
+              <Link2 className="brand-logo-icon w-10 h-10 text-pink-500" />
             </div>
           </div>
 

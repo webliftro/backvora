@@ -26,9 +26,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center mb-8">
-          <Link2 className="w-8 h-8 text-pink-500" />
-          <span className="ml-3 text-2xl font-bold text-white">BackVora</span>
+        <div className="brand-logo flex items-center justify-center mb-8">
+          <span className="brand-logo-mark flex items-center justify-center w-10 h-10">
+            <Link2 className="brand-logo-icon w-8 h-8 text-pink-500" />
+          </span>
+          <span className="brand-logo-word ml-3 text-2xl font-bold text-white">BackVora</span>
         </div>
         <form onSubmit={handleSubmit} className="bg-gray-800 rounded-lg p-6 space-y-4 border border-gray-700">
           <h2 className="text-lg font-semibold text-white text-center">Sign In</h2>

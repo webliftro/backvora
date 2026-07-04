@@ -133,6 +133,78 @@
   box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 16px 40px -8px rgb(0 0 0 / 0.5);
 }
 
+.brand-logo {
+  position: relative;
+  isolation: isolate;
+}
+
+.brand-logo-mark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+}
+
+.brand-logo-mark::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      color-mix(in srgb, var(--color-pink-500) 28%, transparent) 0%,
+      transparent 62%);
+  opacity: 0.7;
+  transform: scale(0.82);
+  animation: brand-logo-glow 3.8s ease-in-out infinite;
+}
+
+.brand-logo-mark::after {
+  content: "";
+  position: absolute;
+  inset: -35% auto -35% -95%;
+  width: 65%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.42), transparent);
+  transform: skewX(-18deg);
+  animation: brand-logo-sheen 5.2s ease-in-out infinite;
+}
+
+.brand-logo-icon {
+  position: relative;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-pink-500) 28%, transparent));
+}
+
+.brand-logo-word {
+  text-shadow: 0 0 18px rgb(244 114 182 / 0.12);
+  transition: color 160ms ease, text-shadow 160ms ease;
+}
+
+.brand-logo:hover .brand-logo-word {
+  color: var(--color-gray-50);
+  text-shadow: 0 0 18px rgb(244 114 182 / 0.24);
+}
+
+@keyframes brand-logo-glow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.78);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+@keyframes brand-logo-sheen {
+  0%, 58% {
+    transform: translateX(0) skewX(-18deg);
+  }
+  72%, 100% {
+    transform: translateX(340%) skewX(-18deg);
+  }
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-ink);
@@ -166,5 +238,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand); 
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .brand-logo-mark::after {
+    display: none;
   }
 }
