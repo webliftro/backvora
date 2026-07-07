@@ -53,11 +53,24 @@ class DomainResponse(DomainBase):
     language: Optional[str] = None
     status: DomainStatus
     last_analyzed_at: Optional[datetime] = None
+    # Cached adult classification verdict (read-only; set via classifier/overrides)
+    domain_niche: Optional[str] = None  # adult | non_adult | unknown | None (never classified)
+    adult_method: Optional[str] = None
+    adult_confidence: Optional[float] = None
+    adult_detail: Optional[str] = None
+    adult_classified_at: Optional[datetime] = None
+    is_adult_overridden: bool = False
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class AdultOverrideRequest(BaseModel):
+    """Schema for setting a manual adult verdict override."""
+    verdict: str = Field(..., pattern="^(adult|non_adult)$")
+    note: Optional[str] = None
 
 
 class BulkDeleteRequest(BaseModel):

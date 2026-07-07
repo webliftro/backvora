@@ -323,6 +323,9 @@ export default function DomainDetailPage() {
   async function saveField(f: string, v: unknown) {
     try { await api.updateDomain(id!, { [f]: v }); toast(`Updated`); load(); } catch (e: any) { toast(e.message, 'error'); }
   }
+  async function clearAdultOverride() {
+    try { await api.clearAdultOverride(id!); toast('Override cleared — will reclassify on next check'); load(); } catch (e) { toast((e as Error).message, 'error'); }
+  }
   async function saveContact2() {
     try { await api.updateDomain(id!, { owner: contact.owner || null, email: contact.email || null, telegram: contact.telegram || null, language: contact.language || null }); toast('Saved'); setEditContact(false); load(); }
     catch (e: any) { toast(e.message, 'error'); }
@@ -1155,6 +1158,17 @@ export default function DomainDetailPage() {
               <div className="flex gap-4">
                 <label className="flex items-center gap-2"><input type="checkbox" checked={d.is_competitor} onChange={e => saveField('is_competitor', e.target.checked)} /><span className="text-sm">Competitor</span></label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={d.is_adult} onChange={e => saveField('is_adult', e.target.checked)} /><span className="text-sm">Adult</span></label>
+              </div>
+              <div className="text-xs text-gray-400">
+                {d.is_adult_overridden ? (
+                  <span className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">manual override</span>
+                    <button onClick={clearAdultOverride} className="text-pink-400 hover:underline">Reset to auto</button>
+                  </span>
+                ) : (
+                  <span>auto: {d.domain_niche || 'unclassified'}{d.adult_method ? ` (${d.adult_method}${d.adult_confidence != null ? `, ${Math.round(d.adult_confidence * 100)}%` : ''})` : ''}</span>
+                )}
+                {d.adult_detail && <div className="mt-0.5 text-gray-500 truncate" title={d.adult_detail}>{d.adult_detail}</div>}
               </div>
             </div>
           </div>

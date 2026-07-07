@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Domain, Backlink
+from ..services import adult_classifier
+from ..utils.domains import extract_root_domain
 
 router = APIRouter()
 
@@ -68,7 +70,13 @@ async def import_ahrefs_backlinks_csv(
     added_domains = []
     added_backlinks = []
     skipped = 0
-    
+
+    overrides = adult_classifier.load_adult_overrides(db)
+    # domain.id → [domain, anchors]; anchors accumulate across rows so the
+    # fetch pass sees the full anchor evidence for each ambiguous domain
+    fetch_candidates: dict[str, list] = {}
+    classified_ids: set[str] = set()
+
     row_count = 0
     for row in reader:
         row_count += 1
@@ -123,28 +131,21 @@ async def import_ahrefs_backlinks_csv(
             is_dofollow = dofollow_lower not in ['true', 'yes', '1', 'nofollow']
         
         # Root domain dedup: blog.x.com matches x.com
-        def _extract_root(d):
-            parts = d.lower().split(".")
-            if len(parts) >= 3 and parts[-2] in ("co", "com", "org", "net", "edu", "gov", "ac"):
-                return ".".join(parts[-3:])
-            return ".".join(parts[-2:]) if len(parts) >= 2 else d
-        
-        root_domain = _extract_root(referring_domain)
-        
+        root_domain = extract_root_domain(referring_domain)
+
         # Find existing by exact match or root domain match
         domain = db.query(Domain).filter(Domain.domain == referring_domain).first()
         if not domain:
             # Check if root domain exists under a different subdomain
             all_domains = db.query(Domain).filter(Domain.deleted_at.is_(None)).all()
             for existing_d in all_domains:
-                if _extract_root(existing_d.domain) == root_domain:
+                if extract_root_domain(existing_d.domain) == root_domain:
                     domain = existing_d
                     break
         if not domain:
             domain = Domain(
                 domain=referring_domain,
                 is_competitor=False,
-                is_adult=True,
                 domain_rating=dr,
                 organic_traffic=traffic,
             )
@@ -161,7 +162,19 @@ async def import_ahrefs_backlinks_csv(
                 domain.organic_traffic = traffic
             if dr and not domain.domain_rating:
                 domain.domain_rating = dr
-        
+
+        # Classify new AND existing domains once per import (overrides win,
+        # cached fetched verdicts stay untouched); ambiguous ones queue for
+        # the bounded homepage fetch pass with every anchor seen in this CSV
+        if domain.id not in classified_ids:
+            classified_ids.add(domain.id)
+            anchors = [anchor] if anchor else []
+            if adult_classifier.apply_import_verdict(domain, overrides, anchor_texts=anchors or None):
+                fetch_candidates[domain.id] = [domain, anchors]
+        elif domain.id in fetch_candidates and anchor:
+            fetch_candidates[domain.id][1].append(anchor)
+
+
         # Check if backlink exists
         existing = db.query(Backlink).filter(
             Backlink.source_domain_id == domain.id,
@@ -184,9 +197,13 @@ async def import_ahrefs_backlinks_csv(
         )
         db.add(backlink)
         added_backlinks.append(referring_domain)
-    
+
+    # Bounded homepage fallback for domains signals couldn't decide
+    adult_scan = await adult_classifier.run_import_fetch_pass(
+        [(d, anchors or None) for d, anchors in fetch_candidates.values()]
+    )
     db.commit()
-    
+
     return {
         "success": True,
         "competitor": competitor_domain,
@@ -194,6 +211,7 @@ async def import_ahrefs_backlinks_csv(
         "domains_added": len(added_domains),
         "backlinks_added": len(added_backlinks),
         "skipped": skipped,
+        "adult_scan": adult_scan,
         "domains": sorted(added_domains, key=lambda x: x.get('traffic') or 0, reverse=True)[:20],
     }
 
@@ -213,8 +231,17 @@ async def import_domains_csv(
     - Simple CSV with 'domain' column
     - Ahrefs exports with 'Referring page URL' or 'Target' columns
     - Tab or comma delimited
-    
+
     Optional columns: dr/DR/Domain Rating, traffic/Traffic/Domain Traffic
+
+    Every domain in the CSV — new or already stored without a fetched
+    verdict — is classified via the shared adult classifier: signal scoring
+    first, then one bounded homepage fetch for the domains signals couldn't
+    decide (capped per import, no AI). With skip_non_adult, confirmed
+    non-adult domains are filtered out; adult AND still-unknown domains are
+    imported (ambiguous domains that may be adult are never silently
+    dropped — they stay `unknown` until a later import or on-demand
+    classification resolves them).
     """
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV")
@@ -252,7 +279,13 @@ async def import_domains_csv(
     added = []
     skipped = 0
     filtered_out = 0
-    
+
+    overrides = adult_classifier.load_adult_overrides(db)
+    fetch_candidates: list[tuple[Domain, Optional[list[str]]]] = []
+    # names of domains created by THIS import — only these may be dropped
+    # if the fetch pass confirms them non-adult under skip_non_adult
+    new_domain_names: set[str] = set()
+
     from urllib.parse import urlparse
     
     for row in reader:
@@ -315,6 +348,11 @@ async def import_domains_csv(
                         updated = True
                 except:
                     pass
+            # Existing rows still get classifier/override updates: old
+            # blind-default rows without a fetched verdict, or rows whose
+            # root gained a manual override since creation
+            if adult_classifier.apply_import_verdict(existing, overrides):
+                fetch_candidates.append((existing, None))
             skipped += 1
             continue
         
@@ -350,37 +388,59 @@ async def import_domains_csv(
             filtered_out += 1
             continue
         
-        # Adult keyword check on import (quick Tier 1 only — no HTTP fetches)
-        if skip_non_adult:
-            from ..services.adult_classifier import classify_domain_keyword
-            is_adult_kw = classify_domain_keyword(domain_name)
-            if is_adult_kw is not True:
-                # Not obviously adult by domain name — skip
-                filtered_out += 1
-                continue
-        
+        # Phase-1 verdict (override, else signals — no HTTP yet)
+        verdict = adult_classifier.classify_new_domain_for_import(domain_name, overrides=overrides)
+
+        # Adult-only filter: drop confirmed non-adult; keep adult AND unknown
+        # (ambiguous domains may be adult — never silently drop them here;
+        # the fetch pass below gets one chance to resolve them)
+        if skip_non_adult and verdict["domain_niche"] == adult_classifier.NICHE_NON_ADULT:
+            filtered_out += 1
+            continue
+
         is_competitor = False
         comp_val = find_col(row, ['is_competitor', 'competitor'])
         if comp_val:
             is_competitor = comp_val.lower() in ['true', '1', 'yes', 'y']
-        
+
         domain = Domain(
             domain=domain_name,
             is_competitor=is_competitor,
-            is_adult=True,
             domain_rating=dr,
             organic_traffic=traffic,
         )
+        adult_classifier.apply_verdict_to_domain(domain, verdict)
         db.add(domain)
         added.append(domain_name)
-    
+        if verdict["domain_niche"] == adult_classifier.NICHE_UNKNOWN:
+            fetch_candidates.append((domain, None))
+            new_domain_names.add(domain_name)
+
+    # Bounded homepage fallback for domains signals couldn't decide
+    db.flush()
+    adult_scan = await adult_classifier.run_import_fetch_pass(fetch_candidates)
+
+    # Domains this import created that the fetch confirmed non-adult are
+    # dropped after all; pre-existing rows are never deleted by a filter
+    if skip_non_adult:
+        for domain_obj, _ in fetch_candidates:
+            if (
+                domain_obj.domain in new_domain_names
+                and domain_obj.domain_niche == adult_classifier.NICHE_NON_ADULT
+            ):
+                new_domain_names.discard(domain_obj.domain)
+                db.delete(domain_obj)
+                added.remove(domain_obj.domain)
+                filtered_out += 1
+
     db.commit()
-    
+
     return {
         "success": True,
         "added": len(added),
         "skipped": skipped,
         "filtered_out": filtered_out,
         "total_rows": len(added) + skipped + filtered_out,
+        "adult_scan": adult_scan,
         "domains": added[:50],
     }

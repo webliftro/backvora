@@ -201,7 +201,13 @@ export default function DomainsPage() {
       cell: i => <StatusPill tone={statusTone(i.getValue())}>{i.getValue()}</StatusPill>,
     }),
     col.accessor('is_competitor', { header: 'Competitor', size: 90, cell: i => i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" /> }),
-    col.accessor('is_adult', { header: 'Adult', size: 60, cell: i => i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" /> }),
+    col.accessor('is_adult', { header: 'Adult', size: 60, cell: i => {
+      const niche = i.row.original.domain_niche;
+      const overridden = i.row.original.is_adult_overridden;
+      const title = overridden ? 'manual override' : (niche || 'unclassified');
+      if (niche === 'unknown' || (!niche && i.getValue())) return <span className="text-gray-500" title={title}>?</span>;
+      return <span title={title}>{i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" />}</span>;
+    } }),
     col.accessor('created_at', { header: 'Added', size: 100, cell: i => i.getValue() ? new Date(i.getValue()!).toLocaleDateString() : '-' }),
   ], []);
 
@@ -292,6 +298,8 @@ export default function DomainsPage() {
       if (r.skipped) parts.push(`${r.skipped} duplicates`);
       if (r.filtered_out) parts.push(`${r.filtered_out} filtered out`);
       parts.push(`${r.total_rows} total rows`);
+      if (r.adult_scan?.fetched) parts.push(`homepage-checked ${r.adult_scan.fetched} ambiguous (${r.adult_scan.resolved} resolved)`);
+      if (r.adult_scan?.deferred) parts.push(`${r.adult_scan.deferred} deferred to a later import/scan`);
       setImportResult({ ok: true, message: parts.join(', ') });
       setCsvFile(null); setCsvMinTraffic(''); setCsvMaxTraffic(''); setCsvMinDr(''); setCsvMaxDr('');
       loadDomains();
@@ -592,7 +600,7 @@ export default function DomainsPage() {
             <label className="flex items-center gap-2 mb-4">
               <input type="checkbox" checked={csvAdultOnly} onChange={e => setCsvAdultOnly(e.target.checked)} className="rounded" />
               <span className="text-sm text-gray-400">Adult domains only</span>
-              <span className="text-xs text-gray-600">(filters by domain name keywords)</span>
+              <span className="text-xs text-gray-600">(homepage-checks ambiguous domains; drops confirmed non-adult, keeps unclassified)</span>
             </label>
             {importProgress && <ResultBanner tone="progress" className="mb-3">{importProgress}</ResultBanner>}
             {importResult && <ResultBanner tone={importResult.ok ? 'success' : 'error'} className="mb-3">{importResult.message}</ResultBanner>}

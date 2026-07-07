@@ -10,8 +10,13 @@ from sqlalchemy import func
 
 from ..database import get_db
 from ..models import Domain, DomainStatus, Backlink, LinkPrice, DomainPaymentMethod, Contact, ContactForm
-from ..schemas.domain import DomainCreate, DomainUpdate, DomainResponse, DomainList, BulkDeleteRequest, BulkUpdateRequest
+from ..schemas.domain import (
+    AdultOverrideRequest, DomainCreate, DomainUpdate, DomainResponse, DomainList,
+    BulkDeleteRequest, BulkUpdateRequest,
+)
+from ..services import adult_classifier
 from ..services.ahrefs import AhrefsService
+from ..utils.domains import normalize_domain
 
 router = APIRouter()
 
@@ -138,6 +143,9 @@ async def list_domains(
             "backlinks_count": domain.backlinks_count,
             "is_competitor": domain.is_competitor,
             "is_adult": domain.is_adult,
+            "domain_niche": domain.domain_niche,
+            "adult_method": domain.adult_method,
+            "is_adult_overridden": domain.is_adult_overridden,
             "category": domain.category,
             "tags": domain.tags,
             "status": domain.status.value if domain.status else "new",
@@ -145,7 +153,7 @@ async def list_domains(
             "created_at": domain.created_at.isoformat() if domain.created_at else None,
             "updated_at": domain.updated_at.isoformat() if domain.updated_at else None,
         }
-        
+
         count = bl_counts.get(domain.id, 0)
         first = first_bls.get(domain.id)
         domain_dict["backlink_count"] = count
@@ -226,7 +234,9 @@ async def get_domain(
         DomainPaymentMethod.domain_id == domain.id,
         DomainPaymentMethod.deleted_at.is_(None),
     ).order_by(DomainPaymentMethod.is_preferred.desc()).all()
-    
+
+    override = adult_classifier.get_adult_override(db, domain.domain)
+
     return {
         "id": domain.id,
         "domain": domain.domain,
@@ -236,6 +246,17 @@ async def get_domain(
         "backlinks_count": domain.backlinks_count,
         "is_competitor": domain.is_competitor,
         "is_adult": domain.is_adult,
+        "domain_niche": domain.domain_niche,
+        "adult_method": domain.adult_method,
+        "adult_confidence": domain.adult_confidence,
+        "adult_detail": domain.adult_detail,
+        "adult_classified_at": domain.adult_classified_at.isoformat() if domain.adult_classified_at else None,
+        "is_adult_overridden": override is not None,
+        "adult_override": {
+            "verdict": override.verdict,
+            "note": override.note,
+            "root_domain": override.root_domain,
+        } if override else None,
         "category": domain.category,
         "tags": domain.tags,
         "status": domain.status.value if domain.status else "new",
@@ -288,17 +309,66 @@ async def update_domain(
     data: DomainUpdate,
     db: Session = Depends(get_db),
 ):
-    """Update a domain."""
+    """Update a domain.
+
+    An explicit is_adult change is a manual decision: it is stored as a
+    durable root-domain override so imports/reclassification can't undo it.
+    """
     domain = db.query(Domain).filter(Domain.id == domain_id).first()
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
-    
-    for key, value in data.model_dump(exclude_unset=True).items():
+
+    payload = data.model_dump(exclude_unset=True)
+    is_adult_value = payload.pop("is_adult", None)
+
+    for key, value in payload.items():
         setattr(domain, key, value)
-    
+
+    if is_adult_value is not None:
+        verdict = adult_classifier.NICHE_ADULT if is_adult_value else adult_classifier.NICHE_NON_ADULT
+        adult_classifier.set_adult_override(db, domain.domain, verdict, note="set via domain edit")
+
     db.commit()
     db.refresh(domain)
     return domain
+
+
+@router.put("/{domain_id}/adult-override")
+async def set_domain_adult_override(
+    domain_id: str,
+    data: AdultOverrideRequest,
+    db: Session = Depends(get_db),
+):
+    """Set a manual adult verdict override for this domain's root domain."""
+    domain = db.query(Domain).filter(Domain.id == domain_id).first()
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    override, affected = adult_classifier.set_adult_override(db, domain.domain, data.verdict, data.note)
+    db.commit()
+    return {
+        "success": True,
+        "root_domain": override.root_domain,
+        "verdict": override.verdict,
+        "note": override.note,
+        "domains_updated": affected,
+    }
+
+
+@router.delete("/{domain_id}/adult-override")
+async def clear_domain_adult_override(
+    domain_id: str,
+    db: Session = Depends(get_db),
+):
+    """Clear the manual override; the domain returns to classifier behavior
+    on the next classification (verdict cache is reset)."""
+    domain = db.query(Domain).filter(Domain.id == domain_id).first()
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    affected = adult_classifier.clear_adult_override(db, domain.domain)
+    db.commit()
+    return {"success": True, "domains_reset": affected}
 
 
 @router.delete("/{domain_id}")
@@ -826,31 +896,40 @@ async def bulk_import_domains(
     """Import multiple domains at once."""
     added = []
     skipped = []
-    
+
+    overrides = adult_classifier.load_adult_overrides(db)
+    fetch_candidates: list[tuple[Domain, Optional[list[str]]]] = []
+
     for domain_name in domains:
-        domain_name = domain_name.strip().lower()
+        domain_name = normalize_domain(domain_name)
         if not domain_name:
             continue
-            
-        # Remove protocol and path
-        domain_name = domain_name.replace("https://", "").replace("http://", "")
-        domain_name = domain_name.split("/")[0]
-        
+
         existing = db.query(Domain).filter(Domain.domain == domain_name).first()
         if existing:
+            # Uncached/overridden duplicates still get their verdict refreshed
+            if adult_classifier.apply_import_verdict(existing, overrides):
+                fetch_candidates.append((existing, None))
             skipped.append(domain_name)
             continue
-        
+
         domain = Domain(domain=domain_name, is_competitor=is_competitor)
+        verdict = adult_classifier.classify_new_domain_for_import(domain_name, overrides=overrides)
+        adult_classifier.apply_verdict_to_domain(domain, verdict)
         db.add(domain)
         added.append(domain_name)
-    
+        if verdict["domain_niche"] == adult_classifier.NICHE_UNKNOWN:
+            fetch_candidates.append((domain, None))
+
+    # Bounded homepage fallback for domains signals couldn't decide
+    adult_scan = await adult_classifier.run_import_fetch_pass(fetch_candidates)
     db.commit()
-    
+
     return {
         "success": True,
         "added": len(added),
         "skipped": len(skipped),
+        "adult_scan": adult_scan,
         "added_domains": added,
         "skipped_domains": skipped,
     }
@@ -1184,78 +1263,78 @@ class SelectedGrabRequest(BaseModel):
 
 class ClassifyAdultRequest(BaseModel):
     domain_ids: list[str]
+    force_refresh: bool = False  # re-run classifier on cached verdicts (overrides still win)
 
 
 @router.post("/classify-adult")
 async def classify_adult_domains(body: ClassifyAdultRequest, db: Session = Depends(get_db)):
-    """Run 3-tier adult classification on selected domains.
-    Tier 1: keyword scan (instant), Tier 2: page scan (~2s), Tier 3: AI (ambiguous only).
-    Processes up to 5 domains concurrently to stay within proxy timeout.
+    """Classify selected domains via the shared adult classifier.
+
+    Precedence per domain: manual override > cached verdict (unless
+    force_refresh) > keyword/signal scoring > one homepage fetch > AI.
+    Verdict metadata is persisted. Processes up to 5 domains concurrently
+    to stay within proxy timeout.
     """
     import asyncio
-    from ..services.adult_classifier import classify_domain, classify_domain_keyword
-    
+
     if not body.domain_ids:
-        return {"scanned": 0, "results": []}
-    
+        return {"scanned": 0, "adult": 0, "non_adult": 0, "unclear": 0, "results": []}
+
     targets = db.query(Domain).filter(
         Domain.id.in_(body.domain_ids),
         Domain.deleted_at.is_(None),
     ).all()
-    
-    # Phase 1: instant keyword scan for all (no network calls)
+
+    # Anchor texts give the classifier extra context (batched, one query)
+    anchor_rows = db.query(Backlink.source_domain_id, Backlink.anchor_text).filter(
+        Backlink.source_domain_id.in_([d.id for d in targets]),
+        Backlink.anchor_text.isnot(None),
+    ).all()
+    anchors_map: dict[str, list[str]] = {}
+    for did, anchor in anchor_rows:
+        anchors_map.setdefault(did, []).append(anchor)
+
+    semaphore = asyncio.Semaphore(5)
+
+    async def classify_one(d: Domain) -> dict:
+        async with semaphore:
+            try:
+                return await asyncio.wait_for(
+                    adult_classifier.classify_domain_with_cache(
+                        db, d,
+                        anchor_texts=anchors_map.get(d.id),
+                        force_refresh=body.force_refresh,
+                    ),
+                    timeout=20,
+                )
+            except asyncio.TimeoutError:
+                return {"domain": d.domain, "domain_niche": "unknown", "is_adult": None,
+                        "confidence": 0, "method": "timeout", "detail": "scan timed out"}
+
+    scan_results = await asyncio.gather(*[classify_one(d) for d in targets])
+    db.commit()
+
     results = []
-    need_scan = []  # domains that need page/AI scan
     adult_count = 0
     non_adult_count = 0
     unclear_count = 0
-    
-    domain_map = {d.domain: d for d in targets}
-    
-    for d in targets:
-        kw_result = classify_domain_keyword(d.domain)
-        if kw_result is True:
-            d.is_adult = True
+    for r in scan_results:
+        niche = r.get("domain_niche")
+        if niche == adult_classifier.NICHE_ADULT:
             adult_count += 1
-            results.append({"domain": d.domain, "is_adult": True, "confidence": 0.95, "method": "keyword", "detail": "adult keyword in domain"})
+        elif niche == adult_classifier.NICHE_NON_ADULT:
+            non_adult_count += 1
         else:
-            need_scan.append(d.domain)
-    
-    # Phase 2+3: concurrent page scan + AI for remaining (5 at a time)
-    if need_scan:
-        semaphore = asyncio.Semaphore(5)
-        
-        async def scan_one(domain_name: str) -> dict:
-            async with semaphore:
-                try:
-                    return await asyncio.wait_for(classify_domain(domain_name), timeout=20)
-                except asyncio.TimeoutError:
-                    return {"domain": domain_name, "is_adult": None, "confidence": 0, "method": "timeout", "detail": "scan timed out"}
-        
-        scan_results = await asyncio.gather(*[scan_one(d) for d in need_scan])
-        
-        for r in scan_results:
-            d = domain_map.get(r["domain"])
-            if d:
-                if r["is_adult"] is True:
-                    d.is_adult = True
-                    adult_count += 1
-                elif r["is_adult"] is False:
-                    d.is_adult = False
-                    non_adult_count += 1
-                else:
-                    unclear_count += 1
-            
-            results.append({
-                "domain": r["domain"],
-                "is_adult": r["is_adult"],
-                "confidence": r.get("confidence", 0),
-                "method": r.get("method", "unknown"),
-                "detail": r.get("detail", ""),
-            })
-    
-    db.commit()
-    
+            unclear_count += 1
+        results.append({
+            "domain": r["domain"],
+            "is_adult": r.get("is_adult"),
+            "domain_niche": niche,
+            "confidence": r.get("confidence", 0),
+            "method": r.get("method", "unknown"),
+            "detail": r.get("detail", ""),
+        })
+
     return {
         "scanned": len(targets),
         "adult": adult_count,

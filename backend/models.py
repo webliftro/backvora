@@ -88,6 +88,13 @@ class Domain(TimestampMixin, Base):
     category = Column(String(100), nullable=True)  # Single category
     tags = Column(String(500), nullable=True)  # Comma-separated tags
     niche_tags = Column(String(500), nullable=True)  # Legacy - comma-separated
+
+    # Cached adult classification verdict (is_adult stays as the boolean compat view)
+    domain_niche = Column(String(20), nullable=True)  # adult | non_adult | unknown; NULL = never classified
+    adult_method = Column(String(50), nullable=True)  # domain_keyword, page_scan, ai, override, ...
+    adult_confidence = Column(Float, nullable=True)
+    adult_detail = Column(Text, nullable=True)  # human-readable signals/reason
+    adult_classified_at = Column(DateTime, nullable=True)
     
     # Status
     status = Column(SQLEnum(DomainStatus), default=DomainStatus.NEW)
@@ -109,10 +116,28 @@ class Domain(TimestampMixin, Base):
     
     # Relationships
     contacts = relationship("Contact", back_populates="domain", cascade="all, delete-orphan")
-    backlinks = relationship("Backlink", back_populates="source_domain", 
+    backlinks = relationship("Backlink", back_populates="source_domain",
                             foreign_keys="Backlink.source_domain_id")
     link_prices = relationship("LinkPrice", back_populates="domain", cascade="all, delete-orphan")
     payment_methods = relationship("DomainPaymentMethod", back_populates="domain", cascade="all, delete-orphan")
+
+    @property
+    def is_adult_overridden(self) -> bool:
+        """True when the current verdict came from a manual override."""
+        return self.adult_method == "override"
+
+
+class DomainAdultOverride(TimestampMixin, Base):
+    """
+    Manual adult/non-adult verdict for a root domain.
+    Wins over the classifier and survives imports/reclassification.
+    """
+    __tablename__ = "domain_adult_overrides"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    root_domain = Column(String(255), unique=True, nullable=False, index=True)
+    verdict = Column(String(20), nullable=False)  # adult | non_adult
+    note = Column(Text, nullable=True)
 
 
 class Contact(TimestampMixin, Base):

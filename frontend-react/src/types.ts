@@ -2,6 +2,9 @@ export interface Domain {
   id: string; domain: string; domain_rating: number | null; organic_traffic: number | null;
   referring_domains: number | null; backlinks_count: number | null; is_competitor: boolean;
   is_adult: boolean; category: string | null; tags: string | null; link_types: string[];
+  domain_niche?: 'adult' | 'non_adult' | 'unknown' | null; adult_method?: string | null;
+  adult_confidence?: number | null; adult_detail?: string | null; adult_classified_at?: string | null;
+  is_adult_overridden?: boolean; adult_override?: { verdict: string; note: string | null; root_domain: string } | null;
   status: string; notes: string | null; owner: string | null; email: string | null;
   telegram: string | null; language?: string | null; niche_tags?: string | null;
   created_at: string | null; updated_at: string | null;

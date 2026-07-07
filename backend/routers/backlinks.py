@@ -8,20 +8,11 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Domain, Backlink, DomainStatus
+from ..services import adult_classifier
 from ..services.ahrefs import AhrefsService
+from ..utils.domains import extract_root_domain
 
 router = APIRouter()
-
-
-def extract_root_domain(domain: str) -> str:
-    """Extract root domain from a subdomain. blog.domain.com → domain.com"""
-    parts = domain.lower().strip().split(".")
-    # Handle common TLDs: .co.uk, .com.br, etc.
-    if len(parts) >= 3 and parts[-2] in ("co", "com", "org", "net", "edu", "gov", "ac"):
-        return ".".join(parts[-3:])
-    if len(parts) >= 2:
-        return ".".join(parts[-2:])
-    return domain.lower().strip()
 
 
 @router.get("/{domain_id}")
@@ -101,7 +92,7 @@ async def fetch_competitor_backlinks(
         # Save mode
         added_domains = []
         added_backlinks = []
-        
+
         # Pre-load all existing domains for root-domain dedup
         all_existing = {d.domain: d for d in db.query(Domain).filter(Domain.deleted_at.is_(None)).all()}
         existing_roots = {}
@@ -109,23 +100,25 @@ async def fetch_competitor_backlinks(
             r = extract_root_domain(d_name)
             if r not in existing_roots:
                 existing_roots[r] = d_name
-        
+
+        overrides = adult_classifier.load_adult_overrides(db)
+        fetch_candidates: list[tuple[Domain, Optional[list[str]]]] = []
+
         for bl in sorted_domains:
             referring_domain = bl.get("name_source")
             root = extract_root_domain(referring_domain)
-            
+
             # Check if root domain already exists (blog.x.com matches x.com)
             domain = None
             if referring_domain in all_existing:
                 domain = all_existing[referring_domain]
             elif root in existing_roots:
                 domain = all_existing[existing_roots[root]]
-            
+
             if not domain:
                 domain = Domain(
                     domain=referring_domain,
                     is_competitor=False,
-                    is_adult=True,  # Default, needs manual verification
                     domain_rating=bl.get("domain_rating_source"),
                     organic_traffic=bl.get("traffic_domain"),
                 )
@@ -136,7 +129,10 @@ async def fetch_competitor_backlinks(
                     "traffic": bl.get("traffic_domain"),
                     "dr": bl.get("domain_rating_source"),
                 })
-            
+            anchors = [bl.get("anchor")] if bl.get("anchor") else None
+            if adult_classifier.apply_import_verdict(domain, overrides, anchor_texts=anchors):
+                fetch_candidates.append((domain, anchors))
+
             # Check if backlink already exists
             existing = db.query(Backlink).filter(
                 Backlink.source_domain_id == domain.id,
@@ -160,9 +156,11 @@ async def fetch_competitor_backlinks(
             )
             db.add(backlink)
             added_backlinks.append(referring_domain)
-        
+
+        # Bounded homepage fallback for domains signals couldn't decide
+        adult_scan = await adult_classifier.run_import_fetch_pass(fetch_candidates)
         db.commit()
-        
+
         return {
             "success": True,
             "competitor": competitor_domain,
@@ -170,6 +168,7 @@ async def fetch_competitor_backlinks(
             "unique_domains": len(sorted_domains),
             "domains_added": len(added_domains),
             "backlinks_added": len(added_backlinks),
+            "adult_scan": adult_scan,
             "domains": added_domains,  # Return with traffic for review
         }
         
@@ -210,7 +209,7 @@ async def fetch_referring_domains(
             }
         
         added_domains = []
-        
+
         # Pre-load for root-domain dedup
         all_existing = {d.domain: d for d in db.query(Domain).filter(Domain.deleted_at.is_(None)).all()}
         existing_roots = {}
@@ -218,33 +217,35 @@ async def fetch_referring_domains(
             r = extract_root_domain(d_name)
             if r not in existing_roots:
                 existing_roots[r] = d_name
-        
+
+        overrides = adult_classifier.load_adult_overrides(db)
+        fetch_candidates: list[tuple[Domain, Optional[list[str]]]] = []
+
         root_seen_this_batch: set[str] = set()
-        
+
         for rd in refdomains:
             referring_domain = rd.get("name_source")
             if not referring_domain:
                 continue
-            
+
             root = extract_root_domain(referring_domain)
-            
+
             # Skip if root domain already in this batch
             if root in root_seen_this_batch:
                 continue
             root_seen_this_batch.add(root)
-            
+
             # Find existing by exact match or root domain match
             domain = None
             if referring_domain in all_existing:
                 domain = all_existing[referring_domain]
             elif root in existing_roots:
                 domain = all_existing[existing_roots[root]]
-            
+
             if not domain:
                 domain = Domain(
                     domain=referring_domain,
                     is_competitor=False,
-                    is_adult=True,
                     domain_rating=rd.get("domain_rating_source"),
                     organic_traffic=rd.get("traffic_domain"),
                 )
@@ -254,14 +255,20 @@ async def fetch_referring_domains(
                     "traffic": rd.get("traffic_domain"),
                     "dr": rd.get("domain_rating_source"),
                 })
-        
+            anchors = [rd.get("anchor")] if rd.get("anchor") else None
+            if adult_classifier.apply_import_verdict(domain, overrides, anchor_texts=anchors):
+                fetch_candidates.append((domain, anchors))
+
+        # Bounded homepage fallback for domains signals couldn't decide
+        adult_scan = await adult_classifier.run_import_fetch_pass(fetch_candidates)
         db.commit()
-        
+
         return {
             "success": True,
             "competitor": competitor_domain,
             "total": len(refdomains),
             "domains_added": len(added_domains),
+            "adult_scan": adult_scan,
             "domains": added_domains,
         }
         
