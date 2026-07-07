@@ -10,7 +10,7 @@
 - **Round:** 1 of max 2
 - **Code location:** branch `feature/backvora-domains-filter-improvements` · worktree `$RELAY_DRIVE_WORKTREE` · base commit `99e7d69` (current `master` tip) · reviewed head `a96b509`
   <!-- Builder sets these from the ACTUAL branch point off current main — not a value frozen at spec time -->
-- **Gates:** rc=0 @ a96b509 (tests=pass typecheck=pass build=pass lint=pass) mode=hermetic dirty=yes 2026-07-07
+- **Gates:** rc=0 @ 670acbe (tests=pass typecheck=pass build=pass lint=pass) mode=full dirty=yes 2026-07-07
   <!-- `flow gates --record` writes this slot for you; whoever runs gates last before a handoff records here (--record, or paste the line verbatim). Leave the placeholder if none run yet (status shows "gates not recorded", never a guessed pass). -->
 - **Spec:** ./SPEC.md  ← read it, it's the contract
 
