@@ -39,10 +39,19 @@ export default function DomainsPage() {
   function loadFilters() {
     try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}'); } catch { return {}; }
   }
+  // Backward-compat: older builds persisted a single `targetFilter: string`; migrate it to the array.
+  function loadTargetFilters(): string[] {
+    const f = loadFilters();
+    if (Array.isArray(f.targetFilters)) return f.targetFilters.filter((t: unknown): t is string => typeof t === 'string');
+    if (typeof f.targetFilter === 'string' && f.targetFilter) return [f.targetFilter];
+    return [];
+  }
   const [search, setSearch] = useState(() => loadFilters().search || '');
   const [statusFilter, setStatusFilter] = useState(() => loadFilters().statusFilter || '');
   const [categoryFilter, setCategoryFilter] = useState(() => loadFilters().categoryFilter || '');
-  const [targetFilter, setTargetFilter] = useState(() => loadFilters().targetFilter || '');
+  const [targetFilters, setTargetFilters] = useState<string[]>(loadTargetFilters);
+  const [targetMenuOpen, setTargetMenuOpen] = useState(false);
+  const [adultFilter, setAdultFilter] = useState(() => loadFilters().adultFilter || '');
   const [hasBacklink, setHasBacklink] = useState(() => loadFilters().hasBacklink || '');
   const [competitorOnly, setCompetitorOnly] = useState(() => loadFilters().competitorOnly || false);
   const [minTraffic, setMinTraffic] = useState(() => loadFilters().minTraffic || '');
@@ -58,10 +67,10 @@ export default function DomainsPage() {
   // Persist filters to localStorage
   useEffect(() => {
     localStorage.setItem(FILTERS_KEY, JSON.stringify({
-      search, statusFilter, categoryFilter, targetFilter, hasBacklink,
+      search, statusFilter, categoryFilter, targetFilters, adultFilter, hasBacklink,
       competitorOnly, minTraffic, maxTraffic, minDR, maxDR, hasContacts, linkTypeFilter,
     }));
-  }, [search, statusFilter, categoryFilter, targetFilter, hasBacklink, competitorOnly, minTraffic, maxTraffic, minDR, maxDR, hasContacts, linkTypeFilter]);
+  }, [search, statusFilter, categoryFilter, targetFilters, adultFilter, hasBacklink, competitorOnly, minTraffic, maxTraffic, minDR, maxDR, hasContacts, linkTypeFilter]);
 
   const [categories, setCategories] = useState<string[]>([]);
   const [targets, setTargets] = useState<string[]>([]);
@@ -98,7 +107,7 @@ export default function DomainsPage() {
   useEffect(() => {
     loadDomains(); loadCategories();
     const p = new URLSearchParams(window.location.search);
-    if (p.get('target')) setTargetFilter(p.get('target')!);
+    if (p.get('target')) setTargetFilters([p.get('target')!]);
   }, []);
 
   async function loadDomains() {
@@ -125,7 +134,9 @@ export default function DomainsPage() {
     }
     if (statusFilter && d.status !== statusFilter) return false;
     if (categoryFilter && d.category !== categoryFilter) return false;
-    if (targetFilter && d.backlink_target !== targetFilter) return false;
+    if (targetFilters.length && !(d.backlink_target && targetFilters.includes(d.backlink_target))) return false;
+    if (adultFilter === 'yes' && d.domain_niche !== 'adult') return false;
+    if (adultFilter === 'no' && d.domain_niche !== 'non_adult') return false;
     if (hasBacklink === 'yes' && !d.backlink_url) return false;
     if (hasBacklink === 'no' && d.backlink_url) return false;
     if (competitorOnly && !d.is_competitor) return false;
@@ -137,7 +148,7 @@ export default function DomainsPage() {
     if (hasContacts === 'no' && d.has_contact_info) return false;
     if (linkTypeFilter && !(Array.isArray(d.link_types) ? d.link_types : []).includes(linkTypeFilter)) return false;
     return true;
-  }), [domains, search, statusFilter, categoryFilter, targetFilter, hasBacklink, hasContacts, competitorOnly, minTraffic, maxTraffic, minDR, maxDR, linkTypeFilter]);
+  }), [domains, search, statusFilter, categoryFilter, targetFilters, adultFilter, hasBacklink, hasContacts, competitorOnly, minTraffic, maxTraffic, minDR, maxDR, linkTypeFilter]);
 
   const availableLinkTypes = useMemo(() => {
     const types = new Set<string>();
@@ -319,7 +330,7 @@ export default function DomainsPage() {
     } catch (e: any) { toast(e.message, 'error'); }
   }
 
-  function clearFilters() { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setTargetFilter(''); setHasBacklink(''); setHasContacts(''); setLinkTypeFilter(''); setCompetitorOnly(false); setMinTraffic(''); setMaxTraffic(''); setMinDR(''); setMaxDR(''); }
+  function clearFilters() { setSearch(''); setStatusFilter(''); setCategoryFilter(''); setTargetFilters([]); setAdultFilter(''); setHasBacklink(''); setHasContacts(''); setLinkTypeFilter(''); setCompetitorOnly(false); setMinTraffic(''); setMaxTraffic(''); setMinDR(''); setMaxDR(''); }
 
   async function bulkGrabAllMissing() {
     if (!confirm('Grab contacts for all domains without any saved contacts? This may take a while.')) return;
@@ -371,7 +382,33 @@ export default function DomainsPage() {
         <input type="text" placeholder="Search domain, tags, notes..." value={search} onChange={e => setSearch(e.target.value)} className={`${ic} w-full sm:w-48`} />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Status</option>{DOMAIN_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
-        <select value={targetFilter} onChange={e => setTargetFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Targets</option>{targets.map(t => <option key={t}>{t}</option>)}</select>
+        <div className="relative flex-1 sm:flex-none min-w-[42%] sm:min-w-0">
+          <button type="button" onClick={() => setTargetMenuOpen(v => !v)} className={`${ic} w-full flex items-center justify-between gap-2 text-left`}>
+            <span className="truncate">{targetFilters.length === 0 ? 'All Targets' : targetFilters.length === 1 ? targetFilters[0] : `${targetFilters.length} targets`}</span>
+            <ChevronDown className="w-4 h-4 shrink-0 text-gray-500" />
+          </button>
+          {targetMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setTargetMenuOpen(false)} />
+              <div className="absolute left-0 mt-1 glass border border-gray-700 rounded-md z-20 py-1 min-w-[180px] max-h-[300px] overflow-y-auto">
+                {targets.length === 0 ? (
+                  <div className="px-3 py-1 text-sm text-gray-500">No targets</div>
+                ) : (<>
+                  {targetFilters.length > 0 && (
+                    <button type="button" onClick={() => setTargetFilters([])} className="w-full text-left px-3 py-1 text-xs text-gray-400 hover:bg-gray-700">Clear selection</button>
+                  )}
+                  {targets.map(t => (
+                    <label key={t} className="flex items-center px-3 py-1 hover:bg-gray-700 cursor-pointer text-sm">
+                      <input type="checkbox" checked={targetFilters.includes(t)} onChange={() => setTargetFilters(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} className="mr-2" />
+                      <span className="truncate">{t}</span>
+                    </label>
+                  ))}
+                </>)}
+              </div>
+            </>
+          )}
+        </div>
+        <select value={adultFilter} onChange={e => setAdultFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Adult?</option><option value="yes">Yes</option><option value="no">No</option></select>
         <select value={hasBacklink} onChange={e => setHasBacklink(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Backlink?</option><option value="yes">Yes</option><option value="no">No</option></select>
         <select value={hasContacts} onChange={e => setHasContacts(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">Has Contacts?</option><option value="yes">Yes</option><option value="no">No</option></select>
         <select value={linkTypeFilter} onChange={e => setLinkTypeFilter(e.target.value)} className={`${ic} flex-1 sm:flex-none min-w-[42%] sm:min-w-0`}><option value="">All Link Types</option>{availableLinkTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
