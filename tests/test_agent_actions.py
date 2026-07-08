@@ -7,7 +7,13 @@ from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
 
 from backend.models import AgentActionAudit, AgentSession, Campaign, CampaignTarget, Contact, Domain, LinkPrice, Order, User
-from backend.routers.agent import AgentActionRequest, execute_action, confirm_action, cancel_action
+from backend.routers.agent import (
+    AgentActionRequest,
+    _parse_planner_json,
+    execute_action,
+    confirm_action,
+    cancel_action,
+)
 from backend.services.agent_actions import (
     ActionRegistry,
     AgentAction,
@@ -35,6 +41,22 @@ def test_registry_rejects_forbidden_action_names():
 
     with pytest.raises(ValueError):
         local.register(AgentAction("shell.exec", "bad", "high_risk", Args, handler))
+
+
+def test_planner_json_parser_accepts_fenced_or_prefaced_json():
+    fenced = """```json
+{"action_name":"campaign.create","action_args":{"target_site":"example.com"}}
+```"""
+    prefaced = (
+        "Here is the action:\n"
+        '{"action_name":"domain.search","action_args":{"query":"porn"}}'
+    )
+
+    assert _parse_planner_json(fenced)["action_name"] == "campaign.create"
+    assert _parse_planner_json(prefaced) == {
+        "action_name": "domain.search",
+        "action_args": {"query": "porn"},
+    }
 
 
 @pytest.mark.asyncio

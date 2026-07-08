@@ -116,18 +116,86 @@ def _infer_action(message: str) -> tuple[str | None, dict[str, Any]]:
     return None, {}
 
 
+def _planner_action_catalog() -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for item in registry.list():
+        action = registry.get(item["name"])
+        actions.append({
+            **item,
+            "args_schema": action.args_model.model_json_schema(),
+        })
+    return actions
+
+
+def _parse_planner_json(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3 and lines[-1].strip() == "```":
+            fenced = "\n".join(lines[1:-1]).strip()
+            try:
+                parsed = json.loads(fenced)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+    start = stripped.find("{")
+    while start != -1:
+        depth = 0
+        in_string = False
+        escaped = False
+        for index in range(start, len(stripped)):
+            char = stripped[index]
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = stripped[start:index + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except json.JSONDecodeError:
+                        break
+        start = stripped.find("{", start + 1)
+
+    raise ActionExecutionError("Agent planner returned invalid JSON")
+
+
 async def _plan_action_with_llm(message: str) -> tuple[str, dict[str, Any]]:
     api_key = settings.anthropic_api_key
     if not api_key:
         raise ActionExecutionError("Agent LLM is not configured. Set ANTHROPIC_API_KEY and AGENT_MODEL to enable free-form commands.")
 
-    action_catalog = registry.list()
+    action_catalog = _planner_action_catalog()
     prompt = (
         "You are BackVora's operational planner. Return ONLY compact JSON with keys "
         "`action_name` and `action_args`. Choose exactly one registered action from the catalog. "
         "Never invent actions. Never request shell/code/deploy/migration/file/env/secret access. "
         "If the user asks for a forbidden or unsupported operation, choose no action by returning "
-        '{"action_name": null, "action_args": {}}.\n\n'
+        '{"action_name": null, "action_args": {}}. Do not wrap the JSON in Markdown fences.\n\n'
+        "For campaign requests limited to adult directories, set `filter_niche_tags` to "
+        "`adult,directory`. Only set `mode` to `auto` when the user explicitly asks for automation.\n\n"
         f"Registered actions:\n{json.dumps(action_catalog, indent=2)}\n\n"
         f"User command:\n{message}"
     )
@@ -153,10 +221,7 @@ async def _plan_action_with_llm(message: str) -> tuple[str, dict[str, Any]]:
         for part in payload.get("content", [])
         if part.get("type") == "text"
     ).strip()
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ActionExecutionError("Agent planner returned invalid JSON") from exc
+    parsed = _parse_planner_json(text)
     action_name = parsed.get("action_name")
     action_args = parsed.get("action_args") or {}
     if not action_name:
