@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import re
 from typing import Any, Literal
 
 import httpx
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user
 from ..config import settings
 from ..database import get_db
-from ..models import AgentActionAudit, AgentMessage, AgentSession, User
+from ..models import AgentActionAudit, AgentMessage, AgentSession, AnchorText, TargetSite, TargetURL, User
 from ..services.agent_actions import ActionExecutionError, execute_registered_action, registry, require_known_action
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -127,6 +128,104 @@ def _planner_action_catalog() -> list[dict[str, Any]]:
     return actions
 
 
+def _normalize_site_query(value: str) -> str:
+    text = value.strip().lower()
+    text = text.removeprefix("https://").removeprefix("http://").removeprefix("www.")
+    return text.split("/", 1)[0].strip()
+
+
+def _target_site_aliases(site: TargetSite) -> set[str]:
+    domain = _normalize_site_query(site.domain)
+    aliases = {
+        site.name.lower(),
+        domain,
+        domain.split(".", 1)[0],
+    }
+    aliases.update(v.strip().lower() for v in (site.brand_variations or "").split(",") if v.strip())
+    return aliases
+
+
+def _alias_matches_text(alias: str, text: str) -> bool:
+    normalized = alias.strip().lower()
+    if not normalized:
+        return False
+    if "." not in normalized and " " not in normalized and len(normalized) < 4:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(normalized)}(?![a-z0-9])", text) is not None
+
+
+def _find_target_site(db: Session, message: str, explicit_query: str | None = None) -> TargetSite | None:
+    query = _normalize_site_query(explicit_query or message)
+    sites = db.query(TargetSite).filter(TargetSite.deleted_at.is_(None)).order_by(TargetSite.name.asc()).all()
+    if explicit_query:
+        for site in sites:
+            aliases = _target_site_aliases(site)
+            if query in aliases or any(query == _normalize_site_query(alias) for alias in aliases):
+                return site
+    lower_message = message.lower()
+    matches = [
+        site
+        for site in sites
+        if any(_alias_matches_text(alias, lower_message) for alias in _target_site_aliases(site))
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _planner_target_site_catalog(db: Session) -> list[dict[str, Any]]:
+    sites = db.query(TargetSite).filter(TargetSite.deleted_at.is_(None)).order_by(TargetSite.name.asc()).limit(25).all()
+    catalog: list[dict[str, Any]] = []
+    for site in sites:
+        urls = db.query(TargetURL).filter(
+            TargetURL.site_id == site.id,
+            TargetURL.deleted_at.is_(None),
+        ).order_by(TargetURL.priority.desc()).limit(8).all()
+        catalog.append({
+            "id": site.id,
+            "name": site.name,
+            "domain": site.domain,
+            "brand_variations": site.brand_variations,
+            "urls": [
+                {
+                    "id": url.id,
+                    "url": url.url,
+                    "description": url.description,
+                    "priority": url.priority,
+                    "anchors": [
+                        {"text": anchor.text, "anchor_type": anchor.anchor_type}
+                        for anchor in db.query(AnchorText).filter(
+                            AnchorText.target_url_id == url.id,
+                            AnchorText.deleted_at.is_(None),
+                        ).order_by(AnchorText.times_used.asc()).limit(5).all()
+                    ],
+                }
+                for url in urls
+            ],
+        })
+    return catalog
+
+
+def _enrich_planned_action_args(
+    db: Session,
+    message: str,
+    action_name: str,
+    action_args: dict[str, Any],
+) -> dict[str, Any]:
+    enriched = dict(action_args)
+    if action_name == "campaign.create":
+        if not enriched.get("target_site") and not enriched.get("target_site_id"):
+            site = _find_target_site(db, message)
+            if site:
+                enriched["target_site"] = site.domain
+                enriched["target_site_id"] = site.id
+        return enriched
+    if action_name in {"campaign.research", "campaign.create_from_research"}:
+        if not enriched.get("target_site_query"):
+            site = _find_target_site(db, message)
+            if site:
+                enriched["target_site_query"] = site.name
+    return enriched
+
+
 def _parse_planner_json(text: str) -> dict[str, Any]:
     stripped = text.strip()
     try:
@@ -182,20 +281,25 @@ def _parse_planner_json(text: str) -> dict[str, Any]:
     raise ActionExecutionError("Agent planner returned invalid JSON")
 
 
-async def _plan_action_with_llm(message: str) -> tuple[str, dict[str, Any]]:
+async def _plan_action_with_llm(message: str, db: Session) -> tuple[str, dict[str, Any]]:
     api_key = settings.anthropic_api_key
     if not api_key:
         raise ActionExecutionError("Agent LLM is not configured. Set ANTHROPIC_API_KEY and AGENT_MODEL to enable free-form commands.")
 
     action_catalog = _planner_action_catalog()
+    target_site_catalog = _planner_target_site_catalog(db)
     prompt = (
         "You are BackVora's operational planner. Return ONLY compact JSON with keys "
         "`action_name` and `action_args`. Choose exactly one registered action from the catalog. "
         "Never invent actions. Never request shell/code/deploy/migration/file/env/secret access. "
         "If the user asks for a forbidden or unsupported operation, choose no action by returning "
         '{"action_name": null, "action_args": {}}. Do not wrap the JSON in Markdown fences.\n\n'
+        "When the user names a known target brand or site, use the matching target site from context. "
+        "For broad requests to create a researched campaign, prefer `campaign.create_from_research` over "
+        "`campaign.create` so the campaign is tied to the known target site and target URLs. "
         "For campaign requests limited to adult directories, set `filter_niche_tags` to "
         "`adult,directory`. Only set `mode` to `auto` when the user explicitly asks for automation.\n\n"
+        f"Known target sites:\n{json.dumps(target_site_catalog, indent=2)}\n\n"
         f"Registered actions:\n{json.dumps(action_catalog, indent=2)}\n\n"
         f"User command:\n{message}"
     )
@@ -228,6 +332,7 @@ async def _plan_action_with_llm(message: str) -> tuple[str, dict[str, Any]]:
         raise ActionExecutionError("That request is not supported by the registered BackVora actions.")
     if not isinstance(action_args, dict):
         raise ActionExecutionError("Agent planner returned invalid action_args")
+    action_args = _enrich_planned_action_args(db, message, action_name, action_args)
     return action_name, action_args
 
 
@@ -350,7 +455,7 @@ async def send_agent_command(
 
     if not action_name:
         try:
-            action_name, action_args = await _plan_action_with_llm(req.message)
+            action_name, action_args = await _plan_action_with_llm(req.message, db)
         except ActionExecutionError as exc:
             content = (
                 f"{exc} Try deterministic commands like `search domains porn`, "
@@ -361,6 +466,7 @@ async def send_agent_command(
             db.commit()
             return {"session_id": session.id, "message": _message_payload(assistant), "action": None}
 
+    action_args = _enrich_planned_action_args(db, req.message, action_name, action_args)
     return await execute_action(AgentActionRequest(
         session_id=session.id,
         action_name=action_name,

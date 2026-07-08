@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from inspect import isawaitable
+import re
 from typing import Any, Awaitable, Callable, Literal
 
 from fastapi import HTTPException
@@ -91,6 +92,16 @@ class SummaryArgs(BaseModel):
     query: str | None = Field(None, max_length=255)
 
 
+class CampaignResearchArgs(BaseModel):
+    target_site_query: str = Field(..., min_length=1, max_length=255)
+    filter_niche_tags: str | None = Field(None, max_length=500)
+    filter_link_type: str | None = Field(None, max_length=100)
+    min_dr: int | None = Field(None, ge=0)
+    min_traffic: int | None = Field(None, ge=0)
+    limit_domains: int = Field(10, ge=1, le=50)
+    limit_urls: int = Field(5, ge=1, le=20)
+
+
 class CampaignCreateArgs(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     target_site: str | None = Field(None, max_length=255)
@@ -112,6 +123,27 @@ class CampaignCreateArgs(BaseModel):
     budget_total: float | None = Field(None, ge=0)
     schedule_enabled: bool | None = None
     schedule_interval_hours: int | None = Field(None, ge=1)
+
+
+class CampaignCreateFromResearchArgs(BaseModel):
+    target_site_query: str = Field(..., min_length=1, max_length=255)
+    name: str | None = Field(None, max_length=255)
+    status: str = Field("active", max_length=50)
+    budget: float | None = Field(None, ge=0)
+    notes: str | None = None
+    mode: Literal["manual", "auto"] = "manual"
+    filter_traffic_min: int | None = Field(None, ge=0)
+    filter_traffic_max: int | None = Field(None, ge=0)
+    filter_dr_min: int | None = Field(None, ge=0)
+    filter_dr_max: int | None = Field(None, ge=0)
+    filter_price_min: float | None = Field(None, ge=0)
+    filter_price_max: float | None = Field(None, ge=0)
+    filter_niche_tags: str | None = Field(None, max_length=500)
+    filter_link_type: str | None = Field(None, max_length=100)
+    velocity_count: int | None = Field(None, ge=1)
+    velocity_period_days: int | None = Field(None, ge=1)
+    budget_total: float | None = Field(None, ge=0)
+    limit_target_urls: int = Field(5, ge=1, le=20)
 
 
 class CampaignTargetCreateArgs(BaseModel):
@@ -289,6 +321,127 @@ def _resolve_order(db: Session, order_id: str) -> Order:
     return order
 
 
+def _normalize_site_query(value: str) -> str:
+    text = value.strip().lower()
+    text = text.removeprefix("https://").removeprefix("http://").removeprefix("www.")
+    return text.split("/", 1)[0].strip()
+
+
+def _alias_matches_text(alias: str, text: str) -> bool:
+    normalized = alias.strip().lower()
+    if not normalized:
+        return False
+    if "." not in normalized and " " not in normalized and len(normalized) < 4:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(normalized)}(?![a-z0-9])", text) is not None
+
+
+def _resolve_target_site(db: Session, query: str) -> TargetSite:
+    normalized = _normalize_site_query(query)
+    candidates = db.query(TargetSite).filter(TargetSite.deleted_at.is_(None)).order_by(TargetSite.name.asc()).all()
+    exact_matches = []
+    for site in candidates:
+        domain = _normalize_site_query(site.domain)
+        names = [
+            site.name.lower(),
+            domain,
+            domain.split(".", 1)[0],
+            *(v.strip().lower() for v in (site.brand_variations or "").split(",") if v.strip()),
+        ]
+        if normalized in names or any(normalized and normalized == _normalize_site_query(name) for name in names):
+            exact_matches.append(site)
+    if len(exact_matches) == 1:
+        return exact_matches[0]
+    if len(exact_matches) > 1:
+        raise ActionExecutionError(f"Target site is ambiguous for {query}")
+
+    text_matches = []
+    query_text = query.lower()
+    for site in candidates:
+        haystack = " ".join(
+            part for part in (site.name, site.domain, site.brand_variations or "") if part
+        ).lower()
+        aliases = [
+            site.name.lower(),
+            _normalize_site_query(site.domain),
+            _normalize_site_query(site.domain).split(".", 1)[0],
+            *(v.strip().lower() for v in (site.brand_variations or "").split(",") if v.strip()),
+        ]
+        if any(_alias_matches_text(alias, query_text) for alias in aliases) or (
+            normalized and _alias_matches_text(normalized, haystack)
+        ):
+            text_matches.append(site)
+    if len(text_matches) == 1:
+        return text_matches[0]
+    if len(text_matches) > 1:
+        raise ActionExecutionError(f"Target site is ambiguous for {query}")
+    raise ActionExecutionError(f"Target site not found for {query}")
+
+
+def _target_site_url_payload(db: Session, site: TargetSite, limit: int) -> list[dict[str, Any]]:
+    urls = db.query(TargetURL).filter(
+        TargetURL.site_id == site.id,
+        TargetURL.deleted_at.is_(None),
+    ).order_by(TargetURL.priority.desc()).limit(limit).all()
+    items: list[dict[str, Any]] = []
+    for url in urls:
+        anchors = db.query(AnchorText).filter(
+            AnchorText.target_url_id == url.id,
+            AnchorText.deleted_at.is_(None),
+        ).order_by(AnchorText.times_used.asc()).limit(10).all()
+        items.append({
+            "id": url.id,
+            "url": url.url,
+            "description": url.description,
+            "priority": url.priority,
+            "anchors": [
+                {
+                    "id": anchor.id,
+                    "text": anchor.text,
+                    "anchor_type": anchor.anchor_type,
+                    "times_used": anchor.times_used,
+                }
+                for anchor in anchors
+            ],
+        })
+    return items
+
+
+def _candidate_domains_for_campaign(
+    db: Session,
+    args: CampaignResearchArgs | CampaignCreateFromResearchArgs,
+) -> list[Domain]:
+    query = db.query(Domain).filter(Domain.deleted_at.is_(None))
+    tags = [tag.strip().lower() for tag in (args.filter_niche_tags or "").split(",") if tag.strip()]
+    if "adult" in tags:
+        query = query.filter(or_(Domain.domain_niche == "adult", Domain.is_adult.is_(True)))
+    if "directory" in tags:
+        directory_term = "%director%"
+        query = query.filter(or_(
+            Domain.domain.ilike(directory_term),
+            Domain.category.ilike(directory_term),
+            Domain.tags.ilike(directory_term),
+            Domain.niche_tags.ilike(directory_term),
+        ))
+    if args.filter_link_type:
+        query = query.join(LinkPrice, LinkPrice.domain_id == Domain.id).filter(
+            LinkPrice.deleted_at.is_(None),
+            LinkPrice.link_type.ilike(f"%{args.filter_link_type}%"),
+        ).distinct()
+    min_dr = getattr(args, "min_dr", None)
+    if min_dr is None:
+        min_dr = getattr(args, "filter_dr_min", None)
+    if min_dr is not None:
+        query = query.filter(Domain.domain_rating >= min_dr)
+    min_traffic = getattr(args, "min_traffic", None)
+    if min_traffic is None:
+        min_traffic = getattr(args, "filter_traffic_min", None)
+    if min_traffic is not None:
+        query = query.filter(Domain.organic_traffic >= min_traffic)
+    limit = getattr(args, "limit_domains", 10)
+    return query.order_by(Domain.organic_traffic.desc().nullslast()).limit(limit).all()
+
+
 def _http_exc_to_action_error(exc: HTTPException) -> ActionExecutionError:
     return ActionExecutionError(str(exc.detail))
 
@@ -431,6 +584,42 @@ def classify_domain(db: Session, _user: User, args: BaseModel) -> ActionResult:
     return ActionResult(message=f"Classified {domain.domain} as {domain.domain_niche}.", data={"domain": _domain_payload(domain)})
 
 
+def research_campaign(db: Session, _user: User, args: BaseModel) -> ActionResult:
+    data = CampaignResearchArgs.model_validate(args.model_dump())
+    site = _resolve_target_site(db, data.target_site_query)
+    urls = _target_site_url_payload(db, site, data.limit_urls)
+    domains = _candidate_domains_for_campaign(db, data)
+    return ActionResult(
+        message=(
+            f"Researched {site.name} ({site.domain}): "
+            f"{len(urls)} target URL(s), {len(domains)} candidate domain(s)."
+        ),
+        data={
+            "target_site": {
+                "id": site.id,
+                "domain": site.domain,
+                "name": site.name,
+                "brand_variations": site.brand_variations,
+                "anchor_distribution": {
+                    "brand": site.anchor_brand_pct,
+                    "generic": site.anchor_generic_pct,
+                    "topical": site.anchor_topical_pct,
+                    "exact": site.anchor_exact_pct,
+                    "url": site.anchor_url_pct,
+                },
+            },
+            "target_urls": urls,
+            "candidate_domains": [_domain_payload(domain) for domain in domains],
+            "recommended_campaign_args": {
+                "target_site_query": site.name,
+                "filter_niche_tags": data.filter_niche_tags,
+                "filter_link_type": data.filter_link_type,
+                "limit_target_urls": data.limit_urls,
+            },
+        },
+    )
+
+
 def create_campaign(db: Session, _user: User, args: BaseModel) -> ActionResult:
     data = CampaignCreateArgs.model_validate(args.model_dump())
     target_site = data.target_site
@@ -480,6 +669,80 @@ def create_campaign(db: Session, _user: User, args: BaseModel) -> ActionResult:
     return ActionResult(
         message=f"Created campaign {campaign.name}.",
         data={"campaign": {"id": campaign.id, "name": campaign.name, "target_site": campaign.target_site}},
+    )
+
+
+def create_campaign_from_research(db: Session, _user: User, args: BaseModel) -> ActionResult:
+    data = CampaignCreateFromResearchArgs.model_validate(args.model_dump())
+    site = _resolve_target_site(db, data.target_site_query)
+    urls = _target_site_url_payload(db, site, data.limit_target_urls)
+    campaign = Campaign(
+        name=data.name or f"{site.name} Link Building",
+        target_site=site.domain,
+        target_site_id=site.id,
+        status=data.status,
+        budget=data.budget,
+        notes=data.notes,
+        mode=data.mode,
+        filter_traffic_min=data.filter_traffic_min,
+        filter_traffic_max=data.filter_traffic_max,
+        filter_dr_min=data.filter_dr_min,
+        filter_dr_max=data.filter_dr_max,
+        filter_price_min=data.filter_price_min,
+        filter_price_max=data.filter_price_max,
+        filter_niche_tags=data.filter_niche_tags,
+        filter_link_type=data.filter_link_type,
+        budget_total=data.budget_total,
+        anchor_brand_pct=site.anchor_brand_pct,
+        anchor_generic_pct=site.anchor_generic_pct,
+        anchor_topical_pct=site.anchor_topical_pct,
+        anchor_exact_pct=site.anchor_exact_pct,
+    )
+    if data.velocity_count is not None:
+        campaign.velocity_count = data.velocity_count
+    if data.velocity_period_days is not None:
+        campaign.velocity_period_days = data.velocity_period_days
+    db.add(campaign)
+    db.flush()
+
+    targets = []
+    for item in urls:
+        target = CampaignTarget(
+            campaign_id=campaign.id,
+            url=item["url"],
+            brand_name=site.name,
+            description=item.get("description"),
+            priority=item.get("priority") or 1,
+        )
+        db.add(target)
+        db.flush()
+        targets.append({
+            "id": target.id,
+            "url": target.url,
+            "brand_name": target.brand_name,
+            "description": target.description,
+            "priority": target.priority,
+        })
+
+    domains = _candidate_domains_for_campaign(db, data)
+    return ActionResult(
+        message=(
+            f"Created campaign {campaign.name} for {site.domain} "
+            f"with {len(targets)} researched target URL(s)."
+        ),
+        data={
+            "campaign": {
+                "id": campaign.id,
+                "name": campaign.name,
+                "target_site": campaign.target_site,
+                "target_site_id": campaign.target_site_id,
+                "mode": campaign.mode,
+                "filter_niche_tags": campaign.filter_niche_tags,
+                "filter_link_type": campaign.filter_link_type,
+            },
+            "targets": targets,
+            "candidate_domains": [_domain_payload(domain) for domain in domains],
+        },
     )
 
 
@@ -816,7 +1079,9 @@ registry.register(AgentAction("domain.update", "Update safe editable domain fiel
 registry.register(AgentAction("contact.upsert", "Create or update a contact", "mutate", ContactUpsertArgs, upsert_contact))
 registry.register(AgentAction("link_price.upsert", "Create or update link pricing", "mutate", LinkPriceUpsertArgs, upsert_link_price))
 registry.register(AgentAction("domain.classify_adult", "Run cached adult signal classification", "mutate", DomainIdArgs, classify_domain))
+registry.register(AgentAction("campaign.research", "Research target site URLs, anchors, and candidate domains for a campaign", "read", CampaignResearchArgs, research_campaign))
 registry.register(AgentAction("campaign.create", "Create a link-building campaign", "mutate", CampaignCreateArgs, create_campaign))
+registry.register(AgentAction("campaign.create_from_research", "Create a campaign after resolving a target site and adding researched target URLs", "mutate", CampaignCreateFromResearchArgs, create_campaign_from_research))
 registry.register(AgentAction("campaign.target.create", "Add a target URL/brand to a campaign", "mutate", CampaignTargetCreateArgs, create_campaign_target))
 registry.register(AgentAction("campaign.summary", "Summarize a campaign", "read", SummaryArgs, summarize_campaign))
 registry.register(AgentAction("order.create", "Create a publisher order in a campaign", "mutate", OrderCreateArgs, create_order))

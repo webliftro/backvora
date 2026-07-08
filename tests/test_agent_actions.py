@@ -6,10 +6,26 @@ import pytest
 from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
 
-from backend.models import AgentActionAudit, AgentSession, Campaign, CampaignTarget, Contact, Domain, LinkPrice, Order, User
+from backend.models import (
+    AgentActionAudit,
+    AgentSession,
+    AnchorText,
+    Campaign,
+    CampaignTarget,
+    Contact,
+    Domain,
+    LinkPrice,
+    Order,
+    TargetSite,
+    TargetURL,
+    User,
+)
+import backend.routers.agent as agent_router
 from backend.routers.agent import (
+    AgentCommandRequest,
     AgentActionRequest,
     _parse_planner_json,
+    send_agent_command,
     execute_action,
     confirm_action,
     cancel_action,
@@ -59,6 +75,31 @@ def test_planner_json_parser_accepts_fenced_or_prefaced_json():
     }
 
 
+def make_target_site(db):
+    site = TargetSite(
+        id="site-1",
+        domain="camhours.com",
+        name="CamHours",
+        brand_variations="Cam Hours,CAMHOURS",
+    )
+    url = TargetURL(
+        id="target-url-1",
+        site_id=site.id,
+        url="https://camhours.com/girls",
+        description="Live cam girls category",
+        priority=10,
+    )
+    anchor = AnchorText(
+        id="anchor-1",
+        target_url_id=url.id,
+        text="CamHours",
+        anchor_type="brand",
+    )
+    db.add_all([site, url, anchor])
+    db.commit()
+    return site
+
+
 @pytest.mark.asyncio
 async def test_unknown_action_is_rejected(db):
     user = make_user(db)
@@ -67,6 +108,85 @@ async def test_unknown_action_is_rejected(db):
         await execute_registered_action(db, user, "git.deploy", {})
 
     assert "Unknown action" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_planned_campaign_create_resolves_known_target_site(db, monkeypatch):
+    user = make_user(db)
+    site = make_target_site(db)
+
+    async def fake_plan(message, db):
+        return "campaign.create", {
+            "name": "CamHours Adult Directories",
+            "filter_niche_tags": "adult,directory",
+        }
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    result = await send_agent_command(AgentCommandRequest(
+        message="Create a new Camhours linkbuilding campaign with only links from adult directories",
+    ), db=db, user=user)
+
+    campaign = db.query(Campaign).filter(Campaign.name == "CamHours Adult Directories").one()
+    assert result["action"]["status"] == "success"
+    assert campaign.target_site == "camhours.com"
+    assert campaign.target_site_id == site.id
+    assert campaign.filter_niche_tags == "adult,directory"
+
+
+@pytest.mark.asyncio
+async def test_target_site_enrichment_does_not_substring_match_short_alias(db, monkeypatch):
+    user = make_user(db)
+    db.add(TargetSite(id="site-hub", domain="hub.com", name="Hub"))
+    db.commit()
+
+    async def fake_plan(message, db):
+        return "campaign.create", {
+            "name": "Wrongly Matched Campaign",
+            "filter_niche_tags": "adult,directory",
+        }
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    result = await send_agent_command(AgentCommandRequest(
+        message="Create a pornhub campaign from adult directories",
+    ), db=db, user=user)
+
+    assert result["action"]["status"] == "failed"
+    assert "target_site or target_site_id is required" in result["action"]["error"]
+    assert db.query(Campaign).filter(Campaign.name == "Wrongly Matched Campaign").count() == 0
+
+
+@pytest.mark.asyncio
+async def test_campaign_create_from_research_adds_target_urls(db):
+    user = make_user(db)
+    site = make_target_site(db)
+    adult_directory = Domain(
+        id="adult-dir-1",
+        domain="adultdirectory.example",
+        is_adult=True,
+        domain_niche="adult",
+        category="adult directory",
+        tags="adult,directory",
+        organic_traffic=1000,
+    )
+    db.add(adult_directory)
+    db.commit()
+
+    _action, result = await execute_registered_action(db, user, "campaign.create_from_research", {
+        "target_site_query": "CamHours",
+        "name": "CamHours Adult Directories",
+        "filter_niche_tags": "adult,directory",
+        "limit_target_urls": 3,
+    })
+
+    campaign = db.query(Campaign).filter(Campaign.id == result.data["campaign"]["id"]).one()
+    target = db.query(CampaignTarget).filter(CampaignTarget.campaign_id == campaign.id).one()
+    assert campaign.target_site == "camhours.com"
+    assert campaign.target_site_id == site.id
+    assert campaign.filter_niche_tags == "adult,directory"
+    assert target.url == "https://camhours.com/girls"
+    assert result.data["candidate_domains"][0]["domain"] == "adultdirectory.example"
 
 
 @pytest.mark.asyncio
