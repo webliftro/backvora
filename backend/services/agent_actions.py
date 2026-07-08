@@ -27,6 +27,7 @@ from ..models import (
     User,
 )
 from ..services import adult_classifier
+from .domain_filters import apply_domain_concept_filters
 
 Permission = Literal["read", "mutate", "high_risk"]
 
@@ -412,17 +413,7 @@ def _candidate_domains_for_campaign(
     args: CampaignResearchArgs | CampaignCreateFromResearchArgs,
 ) -> list[Domain]:
     query = db.query(Domain).filter(Domain.deleted_at.is_(None))
-    tags = [tag.strip().lower() for tag in (args.filter_niche_tags or "").split(",") if tag.strip()]
-    if "adult" in tags:
-        query = query.filter(or_(Domain.domain_niche == "adult", Domain.is_adult.is_(True)))
-    if "directory" in tags:
-        directory_term = "%director%"
-        query = query.filter(or_(
-            Domain.domain.ilike(directory_term),
-            Domain.category.ilike(directory_term),
-            Domain.tags.ilike(directory_term),
-            Domain.niche_tags.ilike(directory_term),
-        ))
+    query = apply_domain_concept_filters(query, args.filter_niche_tags)
     if args.filter_link_type:
         query = query.join(LinkPrice, LinkPrice.domain_id == Domain.id).filter(
             LinkPrice.deleted_at.is_(None),

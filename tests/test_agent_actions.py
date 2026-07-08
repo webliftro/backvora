@@ -166,11 +166,27 @@ async def test_campaign_create_from_research_adds_target_urls(db):
         domain="adultdirectory.example",
         is_adult=True,
         domain_niche="adult",
-        category="adult directory",
-        tags="adult,directory",
+        category="adult toplist",
+        tags="adult,toplist",
         organic_traffic=1000,
     )
-    db.add(adult_directory)
+    adult_content_site = Domain(
+        id="adult-site-1",
+        domain="adultcontent.example",
+        is_adult=True,
+        domain_niche="adult",
+        category="adult tube site",
+        tags="adult",
+        organic_traffic=10000,
+    )
+    non_adult_directory = Domain(
+        id="business-dir-1",
+        domain="businessdirectory.example",
+        category="business directory",
+        tags="directory",
+        organic_traffic=5000,
+    )
+    db.add_all([adult_directory, adult_content_site, non_adult_directory])
     db.commit()
 
     _action, result = await execute_registered_action(db, user, "campaign.create_from_research", {
@@ -186,7 +202,8 @@ async def test_campaign_create_from_research_adds_target_urls(db):
     assert campaign.target_site_id == site.id
     assert campaign.filter_niche_tags == "adult,directory"
     assert target.url == "https://camhours.com/girls"
-    assert result.data["candidate_domains"][0]["domain"] == "adultdirectory.example"
+    candidate_domains = [domain["domain"] for domain in result.data["candidate_domains"]]
+    assert candidate_domains == ["adultdirectory.example"]
 
 
 @pytest.mark.asyncio

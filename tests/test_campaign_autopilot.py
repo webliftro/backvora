@@ -50,6 +50,8 @@ def make_domain(db, domain_name="publisher.com", dr=40, traffic=5000, status=Dom
         niche_tags=kwargs.get("niche_tags"),
         tags=kwargs.get("tags"),
         category=kwargs.get("category"),
+        is_adult=kwargs.get("is_adult"),
+        domain_niche=kwargs.get("domain_niche"),
     )
     db.add(d)
     db.commit()
@@ -129,8 +131,8 @@ class TestGetEligibleDomains:
         assert "cheap.com" in domains
         assert "expensive.com" not in domains
 
-    def test_filters_by_niche_tags(self, db):
-        campaign = make_campaign(db, filter_niche_tags="adult,entertainment")
+    def test_filters_by_single_niche_tag(self, db):
+        campaign = make_campaign(db, filter_niche_tags="adult")
         d1 = make_domain(db, "adult-site.com", niche_tags="adult,lifestyle")
         make_contact(db, d1)
         make_price(db, d1)
@@ -142,6 +144,61 @@ class TestGetEligibleDomains:
         domains = [r["domain"].domain for r in results]
         assert "adult-site.com" in domains
         assert "tech-site.com" not in domains
+
+    def test_general_multi_niche_tags_keep_match_any_behavior(self, db):
+        campaign = make_campaign(db, filter_niche_tags="adult,entertainment")
+        d1 = make_domain(db, "adult-site.com", niche_tags="adult,lifestyle")
+        make_contact(db, d1)
+        make_price(db, d1)
+        d2 = make_domain(db, "music-site.com", niche_tags="music,entertainment")
+        make_contact(db, d2)
+        make_price(db, d2)
+        d3 = make_domain(db, "tech-site.com", niche_tags="technology,software")
+        make_contact(db, d3)
+        make_price(db, d3)
+
+        results = get_eligible_domains(campaign, db)
+        domains = [r["domain"].domain for r in results]
+        assert "adult-site.com" in domains
+        assert "music-site.com" in domains
+        assert "tech-site.com" not in domains
+
+    def test_filters_adult_directory_as_adult_toplist_aggregator(self, db):
+        campaign = make_campaign(db, filter_niche_tags="adult,directory")
+        d1 = make_domain(
+            db,
+            "theporndude.com",
+            traffic=1000,
+            is_adult=True,
+            domain_niche="adult",
+            category="Toplist",
+        )
+        make_contact(db, d1)
+        make_price(db, d1)
+        d2 = make_domain(
+            db,
+            "adult-content.com",
+            traffic=50000,
+            is_adult=True,
+            domain_niche="adult",
+            category="adult tube site",
+        )
+        make_contact(db, d2)
+        make_price(db, d2)
+        d3 = make_domain(
+            db,
+            "business-directory.com",
+            traffic=10000,
+            category="directory",
+        )
+        make_contact(db, d3)
+        make_price(db, d3)
+
+        results = get_eligible_domains(campaign, db)
+        domains = [r["domain"].domain for r in results]
+        assert "theporndude.com" in domains
+        assert "adult-content.com" not in domains
+        assert "business-directory.com" not in domains
 
     def test_filters_by_link_type(self, db):
         campaign = make_campaign(db, filter_link_type="Guest Post")

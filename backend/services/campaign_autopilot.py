@@ -12,6 +12,7 @@ from ..models import (
     Campaign, Domain, Contact, LinkPrice, Order, OrderLink,
     AnchorText, TargetURL, TargetSite, DomainStatus,
 )
+from .domain_filters import apply_domain_concept_filters
 
 
 def get_eligible_domains(campaign: Campaign, db: Session) -> List[Dict[str, Any]]:
@@ -67,17 +68,9 @@ def get_eligible_domains(campaign: Campaign, db: Session) -> List[Dict[str, Any]
     if campaign.filter_dr_max is not None:
         query = query.filter(Domain.domain_rating <= campaign.filter_dr_max)
 
-    # Niche tag filter
-    if campaign.filter_niche_tags:
-        filter_tags = [t.strip().lower() for t in campaign.filter_niche_tags.split(",") if t.strip()]
-        if filter_tags:
-            # Match any of the tags
-            tag_conditions = []
-            for tag in filter_tags:
-                tag_conditions.append(Domain.niche_tags.ilike(f"%{tag}%"))
-                tag_conditions.append(Domain.tags.ilike(f"%{tag}%"))
-                tag_conditions.append(Domain.category.ilike(f"%{tag}%"))
-            query = query.filter(or_(*tag_conditions))
+    # Preserve legacy match-any tag filters, with adult,directory handled as
+    # the stricter adult toplist/aggregator concept.
+    query = apply_domain_concept_filters(query, campaign.filter_niche_tags)
 
     # Exclude domains already used for same target site
     target_site = campaign.target_site
