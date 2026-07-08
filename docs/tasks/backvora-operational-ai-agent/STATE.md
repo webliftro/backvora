@@ -10,7 +10,7 @@
 - **Round:** 2 of max 3
 - **Code location:** branch `feature/backvora-operational-ai-agent` · base commit `fe3ef33` (current `master` tip at spec time)
   <!-- Builder sets these from the ACTUAL branch point off current main — not a value frozen at spec time -->
-- **Gates:** rc=0 @ 9590456 (tests=pass typecheck=pass build=pass lint=pass) mode=full dirty=yes 2026-07-09
+- **Gates:** rc=0 @ 4bc558f (tests=pass typecheck=pass build=pass lint=pass) mode=full dirty=yes 2026-07-09
   <!-- `flow gates --record` writes this slot for you; whoever runs gates last before a handoff records here (--record, or paste the line verbatim). Leave the placeholder if none run yet (status shows "gates not recorded", never a guessed pass). -->
 - **Spec:** ./SPEC.md ← read it, it is the contract
 
