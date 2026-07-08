@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
+    # BackVora operational agent
+    agent_model: str = "claude-sonnet-4-6"
+    agent_max_results: int = 20
+
     # OpenAI (DALL-E 3)
     openai_api_key: str = ""
 

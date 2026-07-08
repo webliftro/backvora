@@ -18,7 +18,7 @@ from .database import init_db
 from .models import Order, Campaign
 
 # Import routers
-from .routers import domains, contacts, outreach, backlinks, import_export, link_prices, auth, inbox, campaigns, target_sites, orders
+from .routers import domains, contacts, outreach, backlinks, import_export, link_prices, auth, inbox, campaigns, target_sites, orders, agent
 from .auth import get_current_user
 
 
@@ -60,6 +60,7 @@ app.include_router(inbox.router, prefix="/api/v1/inbox", tags=["Inbox"], depende
 app.include_router(campaigns.router, prefix="/api/v1/campaigns", tags=["Campaigns"], dependencies=[Depends(get_current_user)])
 app.include_router(target_sites.router, prefix="/api/v1/target-sites", tags=["Target Sites"], dependencies=[Depends(get_current_user)])
 app.include_router(orders.router, prefix="/api/v1/orders", tags=["Orders"], dependencies=[Depends(get_current_user)])
+app.include_router(agent.router, prefix="/api/v1/agent", tags=["Agent"])
 
 
 # ============ Frontend Routes (Jinja2 - disabled, using React SPA) ============

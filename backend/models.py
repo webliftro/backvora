@@ -140,6 +140,54 @@ class DomainAdultOverride(TimestampMixin, Base):
     note = Column(Text, nullable=True)
 
 
+class AgentSession(TimestampMixin, Base):
+    """A user-scoped operational AI agent conversation."""
+    __tablename__ = "agent_sessions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(255), nullable=True)
+
+    user = relationship("User")
+    messages = relationship("AgentMessage", back_populates="session", cascade="all, delete-orphan")
+    actions = relationship("AgentActionAudit", back_populates="session", cascade="all, delete-orphan")
+
+
+class AgentMessage(TimestampMixin, Base):
+    """A user or assistant message in an agent session."""
+    __tablename__ = "agent_messages"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(36), ForeignKey("agent_sessions.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # user | assistant | system
+    content = Column(Text, nullable=False)
+    meta = Column(JSON, nullable=True)
+
+    session = relationship("AgentSession", back_populates="messages")
+    user = relationship("User")
+
+
+class AgentActionAudit(TimestampMixin, Base):
+    """Audit record for every agent action attempt."""
+    __tablename__ = "agent_action_audits"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(36), ForeignKey("agent_sessions.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    action_name = Column(String(100), nullable=False, index=True)
+    permission = Column(String(20), nullable=False)  # read | mutate | high_risk
+    requires_confirmation = Column(Boolean, default=False, nullable=False)
+    confirmed_at = Column(DateTime, nullable=True)
+    status = Column(String(30), nullable=False, default="pending")  # pending | success | failed | rejected | cancelled
+    input_json = Column(JSON, nullable=True)
+    result_json = Column(JSON, nullable=True)
+    error = Column(Text, nullable=True)
+
+    session = relationship("AgentSession", back_populates="actions")
+    user = relationship("User")
+
+
 class Contact(TimestampMixin, Base):
     """
     A contact person/email at a domain.

@@ -14,6 +14,7 @@ import LoginPage from './pages/LoginPage';
 import SettingsPage from './pages/SettingsPage';
 import CheckMetricsPage from './pages/CheckMetricsPage';
 import InboxPage from './pages/InboxPage';
+import AgentPage from './pages/AgentPage';
 import CampaignsPage from './pages/CampaignsPage';
 import CampaignDetailPage from './pages/CampaignDetailPage';
 import { TargetSitesListPage, TargetSiteDetailPage } from './pages/TargetSitesPage';
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route path="/outreach" element={<OutreachPage />} />
         <Route path="/deals" element={<DealsPage />} />
         <Route path="/check-metrics" element={<CheckMetricsPage />} />
+        <Route path="/agent" element={<AgentPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />

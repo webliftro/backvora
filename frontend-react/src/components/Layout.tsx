@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   Link2, LogOut, Settings, Menu, X, LayoutDashboard, Globe, Crosshair,
-  Target, Radar, Send, Handshake, Inbox, Gauge, type LucideIcon,
+  Target, Radar, Send, Handshake, Inbox, Gauge, Bot, type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -33,7 +33,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Tools',
-    items: [{ to: '/check-metrics', label: 'Check Metrics', icon: Gauge }],
+    items: [
+      { to: '/check-metrics', label: 'Check Metrics', icon: Gauge },
+      { to: '/agent', label: 'Agent', icon: Bot },
+    ],
   },
 ]
 
