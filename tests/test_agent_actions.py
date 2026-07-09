@@ -1,6 +1,7 @@
 """Operational agent registry and audit tests."""
 
 import asyncio
+from datetime import datetime, timedelta
 
 import pytest
 from pydantic import BaseModel
@@ -29,6 +30,8 @@ from backend.routers.agent import (
     execute_action,
     confirm_action,
     cancel_action,
+    list_agent_sessions,
+    get_agent_session,
 )
 from backend.services.agent_actions import (
     ActionRegistry,
@@ -132,6 +135,79 @@ async def test_planned_campaign_create_resolves_known_target_site(db, monkeypatc
     assert campaign.target_site == "camhours.com"
     assert campaign.target_site_id == site.id
     assert campaign.filter_niche_tags == "adult,directory"
+
+
+@pytest.mark.asyncio
+async def test_agent_sessions_are_saved_and_loadable(db, monkeypatch):
+    user = make_user(db)
+
+    async def fake_plan(_message, _db):
+        return agent_router.AgentPlan(None, {}, "Saved response")
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    first = await send_agent_command(AgentCommandRequest(
+        message="Talk through a CamHours campaign",
+    ), db=db, user=user)
+    second = await send_agent_command(AgentCommandRequest(
+        message="Continue in the same conversation",
+        session_id=first["session_id"],
+    ), db=db, user=user)
+
+    sessions = await list_agent_sessions(db=db, user=user)
+    loaded = await get_agent_session(first["session_id"], db=db, user=user)
+
+    assert second["session_id"] == first["session_id"]
+    assert sessions["items"][0]["id"] == first["session_id"]
+    assert sessions["items"][0]["title"] == "Talk through a CamHours campaign"
+    assert [m["role"] for m in loaded["messages"]] == ["user", "assistant", "user", "assistant"]
+    assert loaded["messages"][1]["content"] == "Saved response"
+
+
+@pytest.mark.asyncio
+async def test_new_agent_session_creates_separate_conversation(db, monkeypatch):
+    user = make_user(db)
+
+    async def fake_plan(_message, _db):
+        return agent_router.AgentPlan(None, {}, "New response")
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    first = await send_agent_command(AgentCommandRequest(message="First conversation"), db=db, user=user)
+    second = await send_agent_command(AgentCommandRequest(message="Second conversation"), db=db, user=user)
+
+    sessions = await list_agent_sessions(db=db, user=user)
+
+    assert first["session_id"] != second["session_id"]
+    assert {item["id"] for item in sessions["items"]} == {first["session_id"], second["session_id"]}
+
+
+@pytest.mark.asyncio
+async def test_continued_agent_session_moves_to_top(db, monkeypatch):
+    user = make_user(db)
+
+    async def fake_plan(_message, _db):
+        return agent_router.AgentPlan(None, {}, "Saved response")
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    first = await send_agent_command(AgentCommandRequest(message="First conversation"), db=db, user=user)
+    second = await send_agent_command(AgentCommandRequest(message="Second conversation"), db=db, user=user)
+
+    old = datetime.utcnow() - timedelta(days=2)
+    newer = datetime.utcnow() - timedelta(days=1)
+    db.query(AgentSession).filter(AgentSession.id == first["session_id"]).update({"updated_at": old})
+    db.query(AgentSession).filter(AgentSession.id == second["session_id"]).update({"updated_at": newer})
+    db.commit()
+
+    await send_agent_command(AgentCommandRequest(
+        message="Continue the first conversation",
+        session_id=first["session_id"],
+    ), db=db, user=user)
+
+    sessions = await list_agent_sessions(db=db, user=user)
+
+    assert sessions["items"][0]["id"] == first["session_id"]
 
 
 @pytest.mark.asyncio

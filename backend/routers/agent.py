@@ -100,6 +100,13 @@ def _audit_payload(audit: AgentActionAudit) -> dict[str, Any]:
     }
 
 
+def _touch_agent_session(db: Session, session_id: str) -> None:
+    db.query(AgentSession).filter(AgentSession.id == session_id).update(
+        {"updated_at": datetime.utcnow()},
+        synchronize_session=False,
+    )
+
+
 def _infer_action(message: str) -> tuple[str | None, dict[str, Any]]:
     """Small deterministic command parser used when no explicit action is sent.
 
@@ -502,6 +509,7 @@ async def send_agent_command(
             )
             assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=content)
             db.add(assistant)
+            _touch_agent_session(db, session.id)
             db.commit()
             return {"session_id": session.id, "message": _message_payload(assistant), "action": None}
         if isinstance(plan, tuple) and not isinstance(plan, AgentPlan):
@@ -517,6 +525,7 @@ async def send_agent_command(
                 content=response or "I can help with BackVora operations, but I need a clearer request.",
             )
             db.add(assistant)
+            _touch_agent_session(db, session.id)
             db.commit()
             return {"session_id": session.id, "message": _message_payload(assistant), "action": None}
 
@@ -544,6 +553,7 @@ async def execute_action(
         )
         assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=str(exc.detail), meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
 
@@ -557,6 +567,7 @@ async def execute_action(
         )
         assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=str(exc), meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
 
@@ -568,6 +579,7 @@ async def execute_action(
         content = f"`{action.name}` requires confirmation before execution."
         assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=content, meta={"pending_action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
 
@@ -576,6 +588,7 @@ async def execute_action(
         requires_confirmation=action.requires_confirmation, status="executing",
     )
     audit_id = audit.id
+    _touch_agent_session(db, session.id)
     db.commit()
     try:
         audit = db.query(AgentActionAudit).filter(AgentActionAudit.id == audit_id).one()
@@ -589,18 +602,21 @@ async def execute_action(
             meta={"action_id": audit.id, "result": result.data},
         )
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
     except ActionExecutionError as exc:
         audit = _rollback_and_persist_action_failure(db, audit_id, str(exc))
         assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=str(exc), meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
     except Exception as exc:
         audit = _rollback_and_persist_action_failure(db, audit_id, f"Unexpected agent action error: {exc}")
         assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=audit.error or "Unexpected agent action error", meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, session.id)
         db.commit()
         return {"session_id": session.id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
 
@@ -637,18 +653,21 @@ async def confirm_action(
             meta={"action_id": audit.id, "result": result.data},
         )
         db.add(assistant)
+        _touch_agent_session(db, audit.session_id)
         db.commit()
         return {"session_id": audit.session_id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
     except ActionExecutionError as exc:
         audit = _rollback_and_persist_action_failure(db, audit_id, str(exc))
         assistant = AgentMessage(session_id=audit.session_id, user_id=user.id, role="assistant", content=str(exc), meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, audit.session_id)
         db.commit()
         return {"session_id": audit.session_id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
     except Exception as exc:
         audit = _rollback_and_persist_action_failure(db, audit_id, f"Unexpected agent action error: {exc}")
         assistant = AgentMessage(session_id=audit.session_id, user_id=user.id, role="assistant", content=audit.error or "Unexpected agent action error", meta={"action_id": audit.id})
         db.add(assistant)
+        _touch_agent_session(db, audit.session_id)
         db.commit()
         return {"session_id": audit.session_id, "message": _message_payload(assistant), "action": _audit_payload(audit)}
 
@@ -673,4 +692,6 @@ async def cancel_action(
     ).first()
     if not audit:
         raise HTTPException(status_code=500, detail="Cancelled action not found")
+    _touch_agent_session(db, audit.session_id)
+    db.commit()
     return {"success": True, "action": _audit_payload(audit)}

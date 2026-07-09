@@ -72,6 +72,7 @@ export const api = {
   executeAgentAction: (d: { session_id?: string; action_name: string; action_args?: Record<string, unknown>; confirm?: boolean }) => req<{ session_id: string; message: { id: string; role: string; content: string; meta: Record<string, unknown> }; action: Record<string, unknown> | null }>(`${B}/agent/actions`, J(d)),
   confirmAgentAction: (id: string) => req<{ session_id: string; message: { id: string; role: string; content: string; meta: Record<string, unknown> }; action: Record<string, unknown> }>(`${B}/agent/actions/${id}/confirm`, { method: 'POST' }),
   cancelAgentAction: (id: string) => req<{ success: boolean; action: Record<string, unknown> }>(`${B}/agent/actions/${id}/cancel`, { method: 'POST' }),
+  getAgentSessions: () => req<{ items: { id: string; title: string | null; created_at: string | null; updated_at: string | null }[] }>(`${B}/agent/sessions`),
   getAgentSession: (id: string) => req<{ session: Record<string, unknown>; messages: { id: string; role: string; content: string; meta: Record<string, unknown>; created_at: string | null }[]; actions: Record<string, unknown>[] }>(`${B}/agent/sessions/${id}`),
   getForms: (domainId: string) => req<{ items: any[] }>(`${B}/contacts/forms/${domainId}`),
   submitForm: (domainId: string, formId?: string, templateId?: string) => req<any>(`${B}/contacts/submit-form/${domainId}?${formId ? `form_id=${formId}` : ''}${templateId ? `&template_id=${templateId}` : ''}`, { method: 'POST' }),
