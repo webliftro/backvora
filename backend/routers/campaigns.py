@@ -2,9 +2,9 @@
 Campaigns API router - Campaign management for link building.
 """
 
-from typing import Optional, List
+from typing import Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -21,6 +21,30 @@ router = APIRouter()
 
 
 # ============ Campaigns CRUD ============
+
+OPTIONAL_NUMBER_FIELDS = (
+    "budget",
+    "spent",
+    "filter_traffic_min",
+    "filter_traffic_max",
+    "filter_dr_min",
+    "filter_dr_max",
+    "filter_price_min",
+    "filter_price_max",
+    "budget_total",
+)
+
+
+def _blank_to_none(value: Any) -> Any:
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
+
+
+def _normalize_text_literal(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
 
 @router.get("")
 async def list_campaigns(db: Session = Depends(get_db)):
@@ -237,6 +261,21 @@ class CampaignCreate(BaseModel):
     schedule_enabled: bool = False
     schedule_interval_hours: int = 6
 
+    @field_validator(*OPTIONAL_NUMBER_FIELDS, mode="before", check_fields=False)
+    @classmethod
+    def normalize_blank_numbers(cls, value: Any) -> Any:
+        return _blank_to_none(value)
+
+    @field_validator("schedule_interval_hours", mode="before")
+    @classmethod
+    def normalize_blank_schedule_interval(cls, value: Any) -> Any:
+        return 6 if isinstance(value, str) and value.strip() == "" else value
+
+    @field_validator("status", "mode", mode="before")
+    @classmethod
+    def normalize_status_and_mode(cls, value: Any) -> Any:
+        return _normalize_text_literal(value)
+
 @router.post("")
 async def create_campaign(data: CampaignCreate, db: Session = Depends(get_db)):
     """Create a new campaign."""
@@ -328,6 +367,16 @@ class CampaignUpdate(BaseModel):
     budget_total: Optional[float] = None
     schedule_enabled: Optional[bool] = None
     schedule_interval_hours: Optional[int] = None
+
+    @field_validator(*OPTIONAL_NUMBER_FIELDS, "schedule_interval_hours", mode="before", check_fields=False)
+    @classmethod
+    def normalize_blank_numbers(cls, value: Any) -> Any:
+        return _blank_to_none(value)
+
+    @field_validator("status", "mode", mode="before")
+    @classmethod
+    def normalize_status_and_mode(cls, value: Any) -> Any:
+        return _normalize_text_literal(value)
 
 @router.put("/{campaign_id}")
 async def update_campaign(campaign_id: str, data: CampaignUpdate, db: Session = Depends(get_db)):
