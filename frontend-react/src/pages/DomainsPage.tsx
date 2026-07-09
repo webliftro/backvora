@@ -156,6 +156,17 @@ export default function DomainsPage() {
     return [...types].sort();
   }, [domains]);
 
+  async function updateDomainCategory(domainId: string, nextCategory: string | null) {
+    try {
+      await api.updateDomain(domainId, { category: nextCategory || null });
+      setDomains(prev => prev.map(d => d.id === domainId ? { ...d, category: nextCategory || null } : d));
+      if (nextCategory && !categories.includes(nextCategory)) setCategories(prev => [...prev, nextCategory].sort());
+      toast('Category updated');
+    } catch (e: any) {
+      toast(e.message, 'error');
+    }
+  }
+
   const columns = useMemo(() => [
     col.display({ id: 'select', size: 40, enableResizing: false,
       header: ({ table }) => <input type="checkbox" checked={table.getIsAllPageRowsSelected()} onChange={table.getToggleAllPageRowsSelectedHandler()} />,
@@ -201,7 +212,34 @@ export default function DomainsPage() {
     }),
     col.accessor('backlink_anchor', { header: 'Anchor', size: 120 }),
     col.accessor('backlink_count', { header: '#Links', size: 70, cell: i => i.getValue() || '-' }),
-    col.accessor('category', { header: 'Category', size: 120, cell: i => i.getValue() || '-' }),
+    col.accessor('category', {
+      header: 'Category',
+      size: 150,
+      cell: i => {
+        const domain = i.row.original;
+        const current = i.getValue() || '';
+        const options = current && !categories.includes(current) ? [...categories, current].sort() : categories;
+        return (
+          <select
+            value={current}
+            onChange={async e => {
+              let next = e.target.value;
+              if (next === '__new__') {
+                const created = prompt('New category:')?.trim();
+                if (!created) return;
+                next = created;
+              }
+              await updateDomainCategory(domain.id, next || null);
+            }}
+            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-200"
+          >
+            <option value="">None</option>
+            {options.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="__new__">New...</option>
+          </select>
+        );
+      },
+    }),
     col.accessor('tags', { header: 'Tags', size: 150,
       cell: i => { const v = i.getValue(); if (!v) return '-'; return <div className="flex flex-wrap gap-1">{v.split(',').filter(Boolean).map((t,j) => <span key={j} className="px-1.5 py-0.5 bg-gray-700 rounded text-xs">{t.trim()}</span>)}</div>; },
     }),
@@ -220,7 +258,7 @@ export default function DomainsPage() {
       return <span title={title}>{i.getValue() ? <Check className="w-4 h-4 text-green-400" /> : <XIcon className="w-4 h-4 text-gray-500" />}</span>;
     } }),
     col.accessor('created_at', { header: 'Added', size: 100, cell: i => i.getValue() ? new Date(i.getValue()!).toLocaleDateString() : '-' }),
-  ], []);
+  ], [categories]);
 
   const table = useReactTable({
     data: filtered, columns, state: { sorting, rowSelection, columnVisibility },

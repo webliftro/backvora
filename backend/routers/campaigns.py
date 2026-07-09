@@ -1357,17 +1357,21 @@ async def get_ready_domains(
     domains_with_payment = db.query(DomainPaymentMethod.domain_id).filter(
         DomainPaymentMethod.deleted_at.is_(None)
     ).distinct()
-    
-    # Main query: contact + prices required, payment optional
-    query = db.query(Domain).filter(
+
+    contact_condition = or_(
+        Domain.id.in_(domains_with_contacts),
+        Domain.email.isnot(None) & (Domain.email != ''),
+    )
+    available_query = db.query(Domain).filter(
         Domain.deleted_at.is_(None),
-        or_(
-            Domain.id.in_(domains_with_contacts),
-            Domain.email.isnot(None) & (Domain.email != ''),
-        ),
-        Domain.id.in_(domains_with_prices),
         Domain.id.notin_(ordered_domain_ids),
         Domain.id.notin_(excluded_domain_ids),
+    )
+    
+    # Main query: contact + prices required, payment optional
+    query = available_query.filter(
+        contact_condition,
+        Domain.id.in_(domains_with_prices),
     )
     
     if has_payment is True:
@@ -1384,6 +1388,7 @@ async def get_ready_domains(
     if max_dr is not None:
         query = query.filter(Domain.domain_rating <= max_dr)
     
+    ready_total = query.count()
     ready = query.order_by(Domain.organic_traffic.desc()).limit(200).all()
     
     items = []
@@ -1429,7 +1434,28 @@ async def get_ready_domains(
             "status": d.status,
         })
     
-    return {"items": items, "total": len(items)}
+    ordered_total = db.query(Order.domain_id).filter(
+        Order.campaign_id == campaign_id
+    ).distinct().count()
+    hidden_total = db.query(CampaignDomainExclusion.domain_id).filter(
+        CampaignDomainExclusion.campaign_id == campaign_id,
+        CampaignDomainExclusion.deleted_at.is_(None),
+    ).distinct().count()
+
+    return {
+        "items": items,
+        "total": ready_total,
+        "summary": {
+            "all_domains": db.query(Domain).filter(Domain.deleted_at.is_(None)).count(),
+            "available_domains": available_query.count(),
+            "with_contact": available_query.filter(contact_condition).count(),
+            "with_price": available_query.filter(Domain.id.in_(domains_with_prices)).count(),
+            "ready": ready_total,
+            "returned": len(items),
+            "ordered_in_campaign": ordered_total,
+            "hidden_in_campaign": hidden_total,
+        },
+    }
 
 
 @router.post("/{campaign_id}/ready-domain-exclusions")

@@ -34,6 +34,7 @@ export default function CampaignDetailPage() {
   const [activeTab, setActiveTab] = useState<'targets' | 'anchors' | 'ready' | 'orders' | 'autopilot'>('targets');
   const [anchorStats, setAnchorStats] = useState<any>(null);
   const [readyDomains, setReadyDomains] = useState<any[]>([]);
+  const [readySummary, setReadySummary] = useState<Record<string, number> | null>(null);
   const [readyFilters, setReadyFilters] = useState({ link_type: '', min_price: '', max_price: '', min_traffic: '', max_traffic: '', min_dr: '', max_dr: '', has_payment: '' });
   const [selectedReady, setSelectedReady] = useState<Record<string, { domain_id: string; link_type: string; price: number | null; contact_id: string | null }>>({});
   const [bulkAdding, setBulkAdding] = useState(false);
@@ -211,6 +212,7 @@ export default function CampaignDetailPage() {
       const f = filters || readyFilters;
       const data = await api.getReadyDomains(id!, f);
       setReadyDomains(data.items);
+      setReadySummary(data.summary || null);
     } catch (e: any) {
       console.error('Failed to load ready domains:', e);
     }
@@ -906,6 +908,26 @@ export default function CampaignDetailPage() {
               <button onClick={() => loadReadyDomains()} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">Refresh</button>
             </div>
           </div>
+
+          {readySummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-sm">
+              {[
+                ['All', readySummary.all_domains],
+                ['Available', readySummary.available_domains],
+                ['Contact', readySummary.with_contact],
+                ['Price', readySummary.with_price],
+                ['Ready', readySummary.ready],
+                ['Shown', readySummary.returned],
+                ['Ordered', readySummary.ordered_in_campaign],
+                ['Hidden', readySummary.hidden_in_campaign],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded border border-gray-700 bg-gray-800 px-3 py-2">
+                  <div className="text-xs text-gray-500">{label}</div>
+                  <div className="font-semibold text-gray-100">{Number(value || 0).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-3">

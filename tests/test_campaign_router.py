@@ -88,6 +88,12 @@ async def test_ready_domain_exclusion_is_campaign_scoped(db):
     before = await get_ready_domains(campaign.id, db=db)
     assert [item["id"] for item in before["items"]] == [domain.id]
     assert "topsite" in before["items"][0]["type_tags"]
+    assert before["summary"]["all_domains"] == 1
+    assert before["summary"]["available_domains"] == 1
+    assert before["summary"]["with_contact"] == 1
+    assert before["summary"]["with_price"] == 1
+    assert before["summary"]["ready"] == 1
+    assert before["summary"]["returned"] == 1
 
     await hide_ready_domain(
         campaign.id,
@@ -98,4 +104,6 @@ async def test_ready_domain_exclusion_is_campaign_scoped(db):
     after = await get_ready_domains(campaign.id, db=db)
     other = await get_ready_domains(other_campaign.id, db=db)
     assert after["items"] == []
+    assert after["summary"]["hidden_in_campaign"] == 1
+    assert after["summary"]["ready"] == 0
     assert [item["id"] for item in other["items"]] == [domain.id]

@@ -142,7 +142,7 @@ export const api = {
     const params = new URLSearchParams();
     if (filters) Object.entries(filters).forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined) params.set(k, String(v)); });
     const qs = params.toString();
-    return req<{ items: any[]; total: number }>(`${B}/campaigns/${campaignId}/ready-domains${qs ? '?' + qs : ''}`);
+    return req<{ items: any[]; total: number; summary?: Record<string, number> }>(`${B}/campaigns/${campaignId}/ready-domains${qs ? '?' + qs : ''}`);
   },
   hideReadyDomain: (campaignId: string, domainId: string, reason?: string) => req<{ success: boolean; id: string; domain_id: string }>(`${B}/campaigns/${campaignId}/ready-domain-exclusions`, J({ domain_id: domainId, reason: reason || null })),
   unhideReadyDomain: (campaignId: string, domainId: string) => req<{ success: boolean; domain_id: string }>(`${B}/campaigns/${campaignId}/ready-domain-exclusions/${domainId}`, { method: 'DELETE' }),
