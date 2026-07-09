@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bot, MessageSquarePlus, Play, Send, ShieldCheck } from 'lucide-react'
+import { Bot, MessageSquarePlus, Play, Send, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '../api'
 import { Button, Card, EmptyState, PageHeader, ResultBanner, StatusPill } from '../components/ui'
 
@@ -122,6 +122,23 @@ export default function AgentPage() {
     setAudits([])
     setCommand('')
     setError('')
+  }
+
+  async function deleteSession(id: string) {
+    const session = sessions.find(item => item.id === id)
+    const title = session?.title || 'Untitled conversation'
+    if (!confirm(`Delete conversation "${title}"?`)) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.deleteAgentSession(id)
+      setSessions(prev => prev.filter(item => item.id !== id))
+      if (sessionId === id) startNewSession()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete conversation failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function submitCommand(e: React.FormEvent) {
@@ -262,26 +279,40 @@ export default function AgentPage() {
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {sessions.map(session => (
-                  <button
+                  <div
                     key={session.id}
-                    type="button"
-                    onClick={() => loadSession(session.id)}
-                    disabled={loading && sessionId === session.id}
-                    className={`w-full text-left rounded-md border px-3 py-2 hover:border-gray-600 ${
+                    className={`flex items-start gap-2 rounded-md border px-3 py-2 hover:border-gray-600 ${
                       sessionId === session.id
                         ? 'border-pink-500 bg-pink-950/30'
                         : 'border-gray-700 bg-gray-900'
                     }`}
                   >
-                    <div className="truncate text-xs font-medium text-gray-200">
-                      {session.title || 'Untitled conversation'}
-                    </div>
-                    {session.updated_at && (
-                      <div className="mt-1 text-[11px] text-gray-500">
-                        {new Date(session.updated_at).toLocaleString()}
+                    <button
+                      type="button"
+                      onClick={() => loadSession(session.id)}
+                      disabled={loading && sessionId === session.id}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="truncate text-xs font-medium text-gray-200">
+                        {session.title || 'Untitled conversation'}
                       </div>
-                    )}
-                  </button>
+                      {session.updated_at && (
+                        <div className="mt-1 text-[11px] text-gray-500">
+                          {new Date(session.updated_at).toLocaleString()}
+                        </div>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSession(session.id)}
+                      disabled={loading}
+                      className="rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-red-300 disabled:opacity-50"
+                      title="Delete conversation"
+                      aria-label={`Delete ${session.title || 'Untitled conversation'}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

@@ -484,6 +484,47 @@ async def get_agent_session(
     }
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_agent_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Soft-delete one agent conversation owned by the current user."""
+    session = db.query(AgentSession).filter(
+        AgentSession.id == session_id,
+        AgentSession.user_id == user.id,
+        AgentSession.deleted_at.is_(None),
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Agent session not found")
+
+    now = datetime.utcnow()
+    session.deleted_at = now
+    db.query(AgentMessage).filter(
+        AgentMessage.session_id == session.id,
+        AgentMessage.user_id == user.id,
+        AgentMessage.deleted_at.is_(None),
+    ).update({"deleted_at": now}, synchronize_session=False)
+    db.query(AgentActionAudit).filter(
+        AgentActionAudit.session_id == session.id,
+        AgentActionAudit.user_id == user.id,
+        AgentActionAudit.deleted_at.is_(None),
+    ).update({
+        "deleted_at": now,
+    }, synchronize_session=False)
+    db.query(AgentActionAudit).filter(
+        AgentActionAudit.session_id == session.id,
+        AgentActionAudit.user_id == user.id,
+        AgentActionAudit.status == "pending",
+    ).update({
+        "status": "cancelled",
+        "error": "conversation deleted",
+    }, synchronize_session=False)
+    db.commit()
+    return {"success": True, "id": session_id}
+
+
 @router.post("/commands")
 async def send_agent_command(
     req: AgentCommandRequest,

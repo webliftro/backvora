@@ -95,6 +95,7 @@ export const api = {
   cancelAgentAction: (id: string) => req<{ success: boolean; action: Record<string, unknown> }>(`${B}/agent/actions/${id}/cancel`, { method: 'POST' }),
   getAgentSessions: () => req<{ items: { id: string; title: string | null; created_at: string | null; updated_at: string | null }[] }>(`${B}/agent/sessions`),
   getAgentSession: (id: string) => req<{ session: Record<string, unknown>; messages: { id: string; role: string; content: string; meta: Record<string, unknown>; created_at: string | null }[]; actions: Record<string, unknown>[] }>(`${B}/agent/sessions/${id}`),
+  deleteAgentSession: (id: string) => req<{ success: boolean; id: string }>(`${B}/agent/sessions/${id}`, { method: 'DELETE' }),
   getForms: (domainId: string) => req<{ items: any[] }>(`${B}/contacts/forms/${domainId}`),
   submitForm: (domainId: string, formId?: string, templateId?: string) => req<any>(`${B}/contacts/submit-form/${domainId}?${formId ? `form_id=${formId}` : ''}${templateId ? `&template_id=${templateId}` : ''}`, { method: 'POST' }),
   previewFormSubmission: (domainId: string, formId?: string, templateId?: string) => req<any>(`${B}/contacts/submit-form/${domainId}/preview?${formId ? `form_id=${formId}` : ''}${templateId ? `&template_id=${templateId}` : ''}`, { method: 'POST' }),

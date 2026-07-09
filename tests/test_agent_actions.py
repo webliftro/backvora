@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.models import (
     AgentActionAudit,
+    AgentMessage,
     AgentSession,
     AnchorText,
     Campaign,
@@ -30,6 +31,7 @@ from backend.routers.agent import (
     execute_action,
     confirm_action,
     cancel_action,
+    delete_agent_session,
     list_agent_sessions,
     get_agent_session,
 )
@@ -208,6 +210,73 @@ async def test_continued_agent_session_moves_to_top(db, monkeypatch):
     sessions = await list_agent_sessions(db=db, user=user)
 
     assert sessions["items"][0]["id"] == first["session_id"]
+
+
+@pytest.mark.asyncio
+async def test_delete_agent_session_soft_deletes_owned_conversation(db, monkeypatch):
+    user = make_user(db)
+
+    async def fake_plan(_message, _db):
+        return agent_router.AgentPlan(None, {}, "Saved response")
+
+    monkeypatch.setattr(agent_router, "_plan_action_with_llm", fake_plan)
+
+    result = await send_agent_command(AgentCommandRequest(message="Temporary conversation"), db=db, user=user)
+    audit = AgentActionAudit(
+        id="audit-delete-1",
+        session_id=result["session_id"],
+        user_id=user.id,
+        action_name="campaign.update",
+        permission="mutate",
+        requires_confirmation=True,
+        status="pending",
+    )
+    successful_audit = AgentActionAudit(
+        id="audit-delete-2",
+        session_id=result["session_id"],
+        user_id=user.id,
+        action_name="domain.search",
+        permission="read",
+        requires_confirmation=False,
+        status="success",
+        result_json={"ok": True},
+    )
+    db.add_all([audit, successful_audit])
+    db.commit()
+
+    deleted = await delete_agent_session(result["session_id"], db=db, user=user)
+    sessions = await list_agent_sessions(db=db, user=user)
+
+    session = db.query(AgentSession).filter(AgentSession.id == result["session_id"]).one()
+    messages = db.query(AgentMessage).filter(AgentMessage.session_id == result["session_id"]).all()
+    db.refresh(audit)
+    db.refresh(successful_audit)
+    assert deleted == {"success": True, "id": result["session_id"]}
+    assert sessions["items"] == []
+    assert session.deleted_at is not None
+    assert all(message.deleted_at is not None for message in messages)
+    assert audit.deleted_at is not None
+    assert audit.status == "cancelled"
+    assert audit.error == "conversation deleted"
+    assert successful_audit.deleted_at is not None
+    assert successful_audit.status == "success"
+    assert successful_audit.error is None
+
+
+@pytest.mark.asyncio
+async def test_delete_agent_session_is_user_scoped(db):
+    owner = make_user(db)
+    other = User(id="user-2", email="other@example.com", password_hash="x", is_active=True)
+    session = AgentSession(id="session-1", user_id=owner.id, title="Private")
+    db.add_all([other, session])
+    db.commit()
+
+    with pytest.raises(Exception) as exc:
+        await delete_agent_session(session.id, db=db, user=other)
+
+    assert "404" in str(exc.value)
+    db.refresh(session)
+    assert session.deleted_at is None
 
 
 @pytest.mark.asyncio
