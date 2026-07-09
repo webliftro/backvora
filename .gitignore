@@ -7,6 +7,7 @@ backups/
 *.log
 .env
 data/linkbuilder.db
+data/imports/
 data/docx/
 data/images/
 data/screenshots/
