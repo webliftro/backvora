@@ -126,6 +126,30 @@ class CampaignCreateArgs(BaseModel):
     schedule_interval_hours: int | None = Field(None, ge=1)
 
 
+class CampaignUpdateArgs(BaseModel):
+    campaign_id: str
+    name: str | None = Field(None, min_length=1, max_length=255)
+    target_site: str | None = Field(None, max_length=255)
+    target_site_id: str | None = None
+    status: Literal["active", "paused", "completed"] | None = None
+    budget: float | None = Field(None, ge=0)
+    notes: str | None = None
+    mode: Literal["manual", "auto"] | None = None
+    filter_traffic_min: int | None = Field(None, ge=0)
+    filter_traffic_max: int | None = Field(None, ge=0)
+    filter_dr_min: int | None = Field(None, ge=0)
+    filter_dr_max: int | None = Field(None, ge=0)
+    filter_price_min: float | None = Field(None, ge=0)
+    filter_price_max: float | None = Field(None, ge=0)
+    filter_niche_tags: str | None = Field(None, max_length=500)
+    filter_link_type: str | None = Field(None, max_length=100)
+    velocity_count: int | None = Field(None, ge=1)
+    velocity_period_days: int | None = Field(None, ge=1)
+    budget_total: float | None = Field(None, ge=0)
+    schedule_enabled: bool | None = None
+    schedule_interval_hours: int | None = Field(None, ge=1)
+
+
 class CampaignCreateFromResearchArgs(BaseModel):
     target_site_query: str = Field(..., min_length=1, max_length=255)
     name: str | None = Field(None, max_length=255)
@@ -663,6 +687,53 @@ def create_campaign(db: Session, _user: User, args: BaseModel) -> ActionResult:
     )
 
 
+def update_campaign(db: Session, _user: User, args: BaseModel) -> ActionResult:
+    data = args if isinstance(args, CampaignUpdateArgs) else CampaignUpdateArgs.model_validate(args.model_dump())
+    campaign = _resolve_campaign(db, data.campaign_id)
+    updates = data.model_dump(exclude_unset=True, exclude={"campaign_id"})
+    if not updates:
+        raise ActionExecutionError("No campaign fields provided to update")
+
+    if data.target_site_id:
+        target_site = db.query(TargetSite).filter(TargetSite.id == data.target_site_id).first()
+        if not target_site:
+            raise ActionExecutionError("Target site not found")
+        updates.setdefault("target_site", target_site.domain)
+        campaign.anchor_brand_pct = target_site.anchor_brand_pct
+        campaign.anchor_generic_pct = target_site.anchor_generic_pct
+        campaign.anchor_topical_pct = target_site.anchor_topical_pct
+        campaign.anchor_exact_pct = target_site.anchor_exact_pct
+
+    for field, value in updates.items():
+        setattr(campaign, field, value)
+
+    db.flush()
+
+    from ..services.scheduler import add_campaign_job, remove_campaign_job
+    if campaign.mode == "auto" and campaign.schedule_enabled and campaign.status == "active":
+        add_campaign_job(campaign.id, campaign.schedule_interval_hours or 6)
+    else:
+        remove_campaign_job(campaign.id)
+
+    return ActionResult(
+        message=f"Updated campaign {campaign.name}.",
+        data={
+            "campaign": {
+                "id": campaign.id,
+                "name": campaign.name,
+                "target_site": campaign.target_site,
+                "target_site_id": campaign.target_site_id,
+                "status": campaign.status,
+                "mode": campaign.mode,
+                "filter_niche_tags": campaign.filter_niche_tags,
+                "filter_link_type": campaign.filter_link_type,
+                "filter_dr_min": campaign.filter_dr_min,
+                "filter_traffic_min": campaign.filter_traffic_min,
+            }
+        },
+    )
+
+
 def create_campaign_from_research(db: Session, _user: User, args: BaseModel) -> ActionResult:
     data = CampaignCreateFromResearchArgs.model_validate(args.model_dump())
     site = _resolve_target_site(db, data.target_site_query)
@@ -1072,6 +1143,7 @@ registry.register(AgentAction("link_price.upsert", "Create or update link pricin
 registry.register(AgentAction("domain.classify_adult", "Run cached adult signal classification", "mutate", DomainIdArgs, classify_domain))
 registry.register(AgentAction("campaign.research", "Research target site URLs, anchors, and candidate domains for a campaign", "read", CampaignResearchArgs, research_campaign))
 registry.register(AgentAction("campaign.create", "Create a link-building campaign", "mutate", CampaignCreateArgs, create_campaign))
+registry.register(AgentAction("campaign.update", "Update an existing campaign, including domain filters like adult directory/topsite constraints", "mutate", CampaignUpdateArgs, update_campaign))
 registry.register(AgentAction("campaign.create_from_research", "Create a campaign after resolving a target site and adding researched target URLs", "mutate", CampaignCreateFromResearchArgs, create_campaign_from_research))
 registry.register(AgentAction("campaign.target.create", "Add a target URL/brand to a campaign", "mutate", CampaignTargetCreateArgs, create_campaign_target))
 registry.register(AgentAction("campaign.summary", "Summarize a campaign", "read", SummaryArgs, summarize_campaign))

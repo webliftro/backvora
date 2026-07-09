@@ -204,6 +204,64 @@ async def test_claude_cli_planner_json_can_return_action(db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_campaign_update_action_persists_adult_directory_filters(db):
+    user = make_user(db)
+    campaign = Campaign(
+        id="16056a2a-bc31-4f07-b8a0-8e08d5fe060e",
+        name="Existing CamHours Campaign",
+        target_site="camhours.com",
+        filter_niche_tags="adult",
+    )
+    db.add(campaign)
+    db.commit()
+
+    action, result = await execute_registered_action(db, user, "campaign.update", {
+        "campaign_id": campaign.id,
+        "filter_niche_tags": "adult,directory",
+    })
+
+    db.refresh(campaign)
+    assert action.permission == "mutate"
+    assert campaign.filter_niche_tags == "adult,directory"
+    assert result.data["campaign"]["filter_niche_tags"] == "adult,directory"
+
+
+@pytest.mark.asyncio
+async def test_planner_can_update_existing_campaign_filters(db, monkeypatch):
+    user = make_user(db)
+    campaign = Campaign(
+        id="16056a2a-bc31-4f07-b8a0-8e08d5fe060e",
+        name="Existing CamHours Campaign",
+        target_site="camhours.com",
+    )
+    db.add(campaign)
+    db.commit()
+
+    async def fake_run_claude_cli(prompt):
+        assert "campaign.update" in prompt
+        return (
+            '{"response":"I will restrict that campaign to adult directory/topsite domains.",'
+            '"action_name":"campaign.update",'
+            '"action_args":{"campaign_id":"16056a2a-bc31-4f07-b8a0-8e08d5fe060e",'
+            '"filter_niche_tags":"adult,directory"}}'
+        )
+
+    monkeypatch.setattr(agent_router, "_run_claude_cli", fake_run_claude_cli)
+
+    result = await send_agent_command(AgentCommandRequest(
+        message=(
+            "edit campaign 16056a2a-bc31-4f07-b8a0-8e08d5fe060e "
+            "so that it includes only adult directories / topsites"
+        ),
+    ), db=db, user=user)
+
+    db.refresh(campaign)
+    assert result["action"]["status"] == "success"
+    assert result["action"]["action_name"] == "campaign.update"
+    assert campaign.filter_niche_tags == "adult,directory"
+
+
+@pytest.mark.asyncio
 async def test_campaign_create_from_research_adds_target_urls(db):
     user = make_user(db)
     site = make_target_site(db)

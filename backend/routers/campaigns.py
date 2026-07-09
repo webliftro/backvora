@@ -305,6 +305,7 @@ async def create_campaign(data: CampaignCreate, db: Session = Depends(get_db)):
 class CampaignUpdate(BaseModel):
     name: Optional[str] = None
     target_site: Optional[str] = None
+    target_site_id: Optional[str] = None
     status: Optional[str] = None
     budget: Optional[float] = None
     spent: Optional[float] = None
@@ -314,6 +315,17 @@ class CampaignUpdate(BaseModel):
     anchor_topical_pct: Optional[int] = None
     anchor_exact_pct: Optional[int] = None
     mode: Optional[str] = None
+    filter_traffic_min: Optional[int] = None
+    filter_traffic_max: Optional[int] = None
+    filter_dr_min: Optional[int] = None
+    filter_dr_max: Optional[int] = None
+    filter_price_min: Optional[float] = None
+    filter_price_max: Optional[float] = None
+    filter_niche_tags: Optional[str] = None
+    filter_link_type: Optional[str] = None
+    velocity_count: Optional[int] = None
+    velocity_period_days: Optional[int] = None
+    budget_total: Optional[float] = None
     schedule_enabled: Optional[bool] = None
     schedule_interval_hours: Optional[int] = None
 
@@ -328,7 +340,18 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, db: Session = 
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if data.target_site_id:
+        target_site = db.query(TargetSite).filter(TargetSite.id == data.target_site_id).first()
+        if not target_site:
+            raise HTTPException(status_code=404, detail="Target site not found")
+        updates.setdefault("target_site", target_site.domain)
+        updates.setdefault("anchor_brand_pct", target_site.anchor_brand_pct)
+        updates.setdefault("anchor_generic_pct", target_site.anchor_generic_pct)
+        updates.setdefault("anchor_topical_pct", target_site.anchor_topical_pct)
+        updates.setdefault("anchor_exact_pct", target_site.anchor_exact_pct)
+
+    for field, value in updates.items():
         setattr(campaign, field, value)
     
     db.commit()
