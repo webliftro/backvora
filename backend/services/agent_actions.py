@@ -15,8 +15,10 @@ from sqlalchemy.orm import Session
 from ..models import (
     AnchorText,
     Campaign,
+    CampaignDomainExclusion,
     CampaignTarget,
     Contact,
+    ContactForm,
     Domain,
     DomainStatus,
     LinkPrice,
@@ -260,6 +262,15 @@ class ContactGrabArgs(DomainIdArgs):
     use_browser: bool = False
 
 
+class ContactGrabMissingArgs(BaseModel):
+    campaign_id: str | None = None
+    campaign_query: str | None = Field(None, max_length=255)
+    adult: bool = True
+    missing_only: bool = True
+    limit: int = Field(25, ge=1, le=100)
+    use_browser: bool = False
+
+
 class ContactFormSubmitArgs(DomainIdArgs):
     form_id: str | None = None
     template_id: str | None = None
@@ -358,6 +369,15 @@ def _resolve_campaign(db: Session, campaign_id: str) -> Campaign:
     if not campaign:
         raise ActionExecutionError("Campaign not found")
     return campaign
+
+
+def _find_campaign(db: Session, campaign_id: str | None = None, query: str | None = None) -> Campaign | None:
+    campaigns = db.query(Campaign).filter(Campaign.deleted_at.is_(None))
+    if campaign_id:
+        return campaigns.filter(Campaign.id == campaign_id).first()
+    if query:
+        return campaigns.filter(Campaign.name.ilike(f"%{query.strip()}%")).order_by(Campaign.created_at.desc()).first()
+    return None
 
 
 def _resolve_order(db: Session, order_id: str) -> Order:
@@ -969,14 +989,186 @@ def create_order_link(db: Session, _user: User, args: BaseModel) -> ActionResult
 async def grab_contacts_for_domain(db: Session, _user: User, args: BaseModel) -> ActionResult:
     data = ContactGrabArgs.model_validate(args.model_dump())
     domain = _resolve_domain(db, data)
-    from ..routers.contacts import grab_contacts
+    from ..services.scraper import ContactsGrabber
+
     try:
-        result = await grab_contacts(domain.id, use_browser=data.use_browser, db=db)
-    except HTTPException as exc:
-        raise _http_exc_to_action_error(exc) from exc
+        result = await ContactsGrabber().grab_all(domain.domain, use_browser=data.use_browser)
+    except Exception as exc:
+        raise ActionExecutionError(str(exc)) from exc
+
+    saved = _save_contact_grab_result(db, domain, result)
+    db.flush()
     return ActionResult(
-        message=f"Grabbed contacts for {domain.domain}.",
-        data={"domain_id": domain.id, "result": result},
+        message=f"Grabbed contacts for {domain.domain}: saved {saved['contacts_added']} contact(s).",
+        data={"domain_id": domain.id, "saved": saved, "result": result},
+    )
+
+
+def _save_contact_grab_result(db: Session, domain: Domain, result: dict[str, Any]) -> dict[str, Any]:
+    contacts_added = 0
+    contacts_seen = 0
+    forms_detected = 0
+    socials = result.get("socials") or {}
+    names = result.get("names") or []
+    has_primary_contact = db.query(Contact.id).filter(
+        Contact.domain_id == domain.id,
+        Contact.deleted_at.is_(None),
+        Contact.is_primary.is_(True),
+    ).first() is not None
+
+    for email_info in result.get("emails") or []:
+        email = (email_info.get("email") or "").strip().lower()
+        if not email:
+            continue
+        contacts_seen += 1
+        contact = db.query(Contact).filter(
+            Contact.domain_id == domain.id,
+            Contact.email == email,
+        ).first()
+        if contact is None:
+            contact = Contact(
+                domain_id=domain.id,
+                email=email,
+                source_page=email_info.get("source_url"),
+                source_type=email_info.get("source_type"),
+                is_primary=not has_primary_contact,
+            )
+            has_primary_contact = True
+            if names:
+                contact.name = names[0].get("name")
+                contact.role = names[0].get("role")
+            db.add(contact)
+            contacts_added += 1
+        elif contact.deleted_at is not None:
+            contact.deleted_at = None
+            contact.is_primary = not has_primary_contact
+            has_primary_contact = has_primary_contact or bool(contact.is_primary)
+            contacts_added += 1
+        if names and not contact.name:
+            contact.name = names[0].get("name")
+        if names and not contact.role:
+            contact.role = names[0].get("role")
+        if socials.get("twitter") and not contact.social_twitter:
+            contact.social_twitter = socials["twitter"][0]
+        if socials.get("linkedin") and not contact.social_linkedin:
+            contact.social_linkedin = socials["linkedin"][0]
+        if socials.get("telegram") and not contact.social_telegram:
+            contact.social_telegram = socials["telegram"][0]
+        if not domain.email:
+            domain.email = email
+        if names and not domain.owner:
+            domain.owner = names[0].get("name")
+
+    for form_info in result.get("forms") or []:
+        existing = db.query(ContactForm).filter(
+            ContactForm.domain_id == domain.id,
+            ContactForm.form_url == form_info.get("form_url"),
+            ContactForm.form_action == form_info.get("form_action"),
+        ).first()
+        if existing:
+            continue
+        db.add(ContactForm(
+            domain_id=domain.id,
+            form_url=form_info.get("form_url"),
+            form_action=form_info.get("form_action"),
+            form_method=form_info.get("form_method") or "post",
+            fields_json=form_info.get("fields") or [],
+            has_captcha=form_info.get("has_captcha", False),
+            captcha_type=form_info.get("captcha_type", "none"),
+            captcha_site_key=form_info.get("captcha_site_key"),
+        ))
+        forms_detected += 1
+
+    return {
+        "contacts_seen": contacts_seen,
+        "contacts_added": contacts_added,
+        "forms_detected": forms_detected,
+    }
+
+
+async def grab_missing_contacts(db: Session, _user: User, args: BaseModel) -> ActionResult:
+    data = ContactGrabMissingArgs.model_validate(args.model_dump())
+    campaign = _find_campaign(db, data.campaign_id, data.campaign_query)
+    if (data.campaign_id or data.campaign_query) and not campaign:
+        raise ActionExecutionError("Campaign not found")
+
+    query = db.query(Domain).filter(Domain.deleted_at.is_(None))
+    if data.adult:
+        query = query.filter(Domain.domain_niche == "adult")
+    if campaign:
+        query = apply_domain_concept_filters(query, campaign.filter_niche_tags)
+        ordered_domain_ids = db.query(Order.domain_id).filter(
+            Order.campaign_id == campaign.id,
+            Order.domain_id.isnot(None),
+            Order.deleted_at.is_(None),
+        ).distinct()
+        excluded_domain_ids = db.query(CampaignDomainExclusion.domain_id).filter(
+            CampaignDomainExclusion.campaign_id == campaign.id,
+            CampaignDomainExclusion.deleted_at.is_(None),
+        ).distinct()
+        query = query.filter(
+            Domain.id.notin_(ordered_domain_ids),
+            Domain.id.notin_(excluded_domain_ids),
+        )
+        if campaign.filter_traffic_min is not None:
+            query = query.filter(Domain.organic_traffic >= campaign.filter_traffic_min)
+        if campaign.filter_traffic_max is not None:
+            query = query.filter(Domain.organic_traffic <= campaign.filter_traffic_max)
+        if campaign.filter_dr_min is not None:
+            query = query.filter(Domain.domain_rating >= campaign.filter_dr_min)
+        if campaign.filter_dr_max is not None:
+            query = query.filter(Domain.domain_rating <= campaign.filter_dr_max)
+
+    if data.missing_only:
+        domains_with_contacts = db.query(Contact.domain_id).filter(Contact.deleted_at.is_(None)).distinct()
+        query = query.filter(
+            Domain.id.notin_(domains_with_contacts),
+            or_(Domain.email.is_(None), Domain.email == ""),
+        )
+
+    domains = query.order_by(Domain.organic_traffic.desc().nullslast()).limit(data.limit).all()
+    if not domains:
+        return ActionResult(
+            message="No matching domains are missing contacts.",
+            data={"processed": 0, "contacts_added": 0, "forms_detected": 0, "results": []},
+        )
+
+    from ..services.scraper import ContactsGrabber
+
+    grabber = ContactsGrabber()
+    results: list[dict[str, Any]] = []
+    total_contacts = 0
+    total_forms = 0
+    for domain in domains:
+        try:
+            result = await grabber.grab_all(domain.domain, use_browser=data.use_browser)
+        except Exception as exc:
+            results.append({
+                "domain_id": domain.id,
+                "domain": domain.domain,
+                "success": False,
+                "error": str(exc),
+            })
+            continue
+        saved = _save_contact_grab_result(db, domain, result)
+        total_contacts += saved["contacts_added"]
+        total_forms += saved["forms_detected"]
+        results.append({
+            "domain_id": domain.id,
+            "domain": domain.domain,
+            "success": True,
+            **saved,
+        })
+
+    return ActionResult(
+        message=f"Processed {len(domains)} domain(s), saved {total_contacts} contact(s).",
+        data={
+            "campaign": {"id": campaign.id, "name": campaign.name} if campaign else None,
+            "processed": len(domains),
+            "contacts_added": total_contacts,
+            "forms_detected": total_forms,
+            "results": results,
+        },
     )
 
 
@@ -1171,7 +1363,8 @@ registry.register(AgentAction("campaign.summary", "Summarize a campaign", "read"
 registry.register(AgentAction("order.create", "Create a publisher order in a campaign", "mutate", OrderCreateArgs, create_order))
 registry.register(AgentAction("order.link.create", "Add a link slot to an order", "mutate", OrderLinkCreateArgs, create_order_link))
 registry.register(AgentAction("order.summary", "Summarize an order", "read", SummaryArgs, summarize_order))
-registry.register(AgentAction("contact.grab", "Grab emails/socials/forms for a domain", "mutate", ContactGrabArgs, grab_contacts_for_domain))
+registry.register(AgentAction("contact.grab", "Grab and save emails/socials/forms for one domain", "mutate", ContactGrabArgs, grab_contacts_for_domain))
+registry.register(AgentAction("contact.grab_missing", "Bulk grab and save contacts for domains missing contact info, optionally scoped to a campaign", "mutate", ContactGrabMissingArgs, grab_missing_contacts))
 registry.register(AgentAction("publisher_rules.grab", "Extract publisher rules from known replies", "mutate", DomainIdArgs, grab_publisher_rules_for_domain))
 registry.register(AgentAction(
     "order.generate_article",

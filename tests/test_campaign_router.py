@@ -1,8 +1,10 @@
 """Campaign router request normalization tests."""
 
+from datetime import datetime
+
 import pytest
 
-from backend.models import Campaign, Contact, Domain, LinkPrice
+from backend.models import Campaign, Contact, Domain, LinkPrice, Order
 from backend.routers.campaigns import (
     CampaignCreate,
     CampaignDomainExclusionCreate,
@@ -107,3 +109,34 @@ async def test_ready_domain_exclusion_is_campaign_scoped(db):
     assert after["summary"]["hidden_in_campaign"] == 1
     assert after["summary"]["ready"] == 0
     assert [item["id"] for item in other["items"]] == [domain.id]
+
+
+@pytest.mark.asyncio
+async def test_ready_domains_ignore_soft_deleted_orders(db):
+    campaign = Campaign(id="camp-1", name="Campaign", target_site="camhours.com")
+    domain = Domain(
+        id="dom-1",
+        domain="adulttoplist.example",
+        domain_niche="adult",
+        category="adult toplist",
+        email="owner@example.com",
+    )
+    db.add_all([
+        campaign,
+        domain,
+        Contact(id="contact-1", domain_id=domain.id, email="owner@example.com", is_primary=True),
+        LinkPrice(id="price-1", domain_id=domain.id, link_type="Guest Post", price=100),
+        Order(
+            id="soft-deleted-order",
+            campaign_id=campaign.id,
+            domain_id=domain.id,
+            link_type="Guest Post",
+            deleted_at=datetime.utcnow(),
+        ),
+    ])
+    db.commit()
+
+    result = await get_ready_domains(campaign.id, db=db)
+
+    assert [item["id"] for item in result["items"]] == [domain.id]
+    assert result["summary"]["ordered_in_campaign"] == 0

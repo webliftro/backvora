@@ -1327,7 +1327,9 @@ async def get_ready_domains(
     
     # Domains already ordered in this campaign
     ordered_domain_ids = db.query(Order.domain_id).filter(
-        Order.campaign_id == campaign_id
+        Order.campaign_id == campaign_id,
+        Order.domain_id.isnot(None),
+        Order.deleted_at.is_(None),
     ).distinct()
 
     excluded_domain_ids = db.query(CampaignDomainExclusion.domain_id).filter(
@@ -1435,7 +1437,9 @@ async def get_ready_domains(
         })
     
     ordered_total = db.query(Order.domain_id).filter(
-        Order.campaign_id == campaign_id
+        Order.campaign_id == campaign_id,
+        Order.domain_id.isnot(None),
+        Order.deleted_at.is_(None),
     ).distinct().count()
     hidden_total = db.query(CampaignDomainExclusion.domain_id).filter(
         CampaignDomainExclusion.campaign_id == campaign_id,
