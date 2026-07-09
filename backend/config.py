@@ -58,8 +58,11 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
 
     # BackVora operational agent
-    agent_model: str = "claude-sonnet-4-6"
+    agent_model: str = "opus"
     agent_max_results: int = 20
+    agent_claude_cli_path: str = "/home/slither/.local/bin/claude"
+    agent_claude_cli_timeout_seconds: int = 60
+    agent_claude_cli_cwd: str = "/tmp"
 
     # OpenAI (DALL-E 3)
     openai_api_key: str = ""

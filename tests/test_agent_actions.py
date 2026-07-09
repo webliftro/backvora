@@ -158,6 +158,52 @@ async def test_target_site_enrichment_does_not_substring_match_short_alias(db, m
 
 
 @pytest.mark.asyncio
+async def test_claude_cli_planner_json_can_return_chat_response(db, monkeypatch):
+    user = make_user(db)
+
+    async def fake_run_claude_cli(prompt):
+        assert "Return ONLY compact JSON" in prompt
+        assert "`response`, `action_name`, and `action_args`" in prompt
+        assert "Never request shell/code/deploy/migration/file/env/secret access" in prompt
+        return '{"response":"I can discuss the campaign first.","action_name":null,"action_args":{}}'
+
+    monkeypatch.setattr(agent_router, "_run_claude_cli", fake_run_claude_cli)
+
+    result = await send_agent_command(AgentCommandRequest(
+        message="Can we talk through the adult directory campaign first?",
+    ), db=db, user=user)
+
+    assert result["action"] is None
+    assert result["message"]["role"] == "assistant"
+    assert result["message"]["content"] == "I can discuss the campaign first."
+
+
+@pytest.mark.asyncio
+async def test_claude_cli_planner_json_can_return_action(db, monkeypatch):
+    user = make_user(db)
+    make_target_site(db)
+
+    async def fake_run_claude_cli(_prompt):
+        return (
+            '{"response":"I will create a researched campaign.",'
+            '"action_name":"campaign.create_from_research",'
+            '"action_args":{"target_site_query":"CamHours","name":"CamHours Adult Directories",'
+            '"filter_niche_tags":"adult,directory"}}'
+        )
+
+    monkeypatch.setattr(agent_router, "_run_claude_cli", fake_run_claude_cli)
+
+    result = await send_agent_command(AgentCommandRequest(
+        message="Create a new Camhours linkbuilding campaign with only links from adult directories",
+    ), db=db, user=user)
+
+    campaign = db.query(Campaign).filter(Campaign.name == "CamHours Adult Directories").one()
+    assert result["action"]["status"] == "success"
+    assert campaign.target_site == "camhours.com"
+    assert campaign.filter_niche_tags == "adult,directory"
+
+
+@pytest.mark.asyncio
 async def test_campaign_create_from_research_adds_target_urls(db):
     user = make_user(db)
     site = make_target_site(db)

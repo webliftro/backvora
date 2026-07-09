@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 import json
+import os
 import re
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -33,6 +34,12 @@ class AgentActionRequest(BaseModel):
     action_name: str
     action_args: dict[str, Any] = Field(default_factory=dict)
     confirm: bool = False
+
+
+class AgentPlan(NamedTuple):
+    action_name: str | None
+    action_args: dict[str, Any]
+    response: str | None = None
 
 
 def _sanitize(value: dict[str, Any]) -> dict[str, Any]:
@@ -281,19 +288,18 @@ def _parse_planner_json(text: str) -> dict[str, Any]:
     raise ActionExecutionError("Agent planner returned invalid JSON")
 
 
-async def _plan_action_with_llm(message: str, db: Session) -> tuple[str, dict[str, Any]]:
-    api_key = settings.anthropic_api_key
-    if not api_key:
-        raise ActionExecutionError("Agent LLM is not configured. Set ANTHROPIC_API_KEY and AGENT_MODEL to enable free-form commands.")
-
+def _build_planner_prompt(message: str, db: Session) -> str:
     action_catalog = _planner_action_catalog()
     target_site_catalog = _planner_target_site_catalog(db)
-    prompt = (
-        "You are BackVora's operational planner. Return ONLY compact JSON with keys "
-        "`action_name` and `action_args`. Choose exactly one registered action from the catalog. "
+    return (
+        "You are BackVora's operational agent. Return ONLY compact JSON with keys "
+        "`response`, `action_name`, and `action_args`. You may chat freely in `response` "
+        "when no action is needed, when you need clarification, or when you are explaining "
+        "what you are about to do. Choose at most one registered action from the catalog. "
         "Never invent actions. Never request shell/code/deploy/migration/file/env/secret access. "
-        "If the user asks for a forbidden or unsupported operation, choose no action by returning "
-        '{"action_name": null, "action_args": {}}. Do not wrap the JSON in Markdown fences.\n\n'
+        "If the user asks for code changes, deployment, migrations, filesystem access, secrets, "
+        "or infrastructure work, set `action_name` to null and briefly explain the boundary in "
+        "`response`. Do not wrap the JSON in Markdown fences.\n\n"
         "When the user names a known target brand or site, use the matching target site from context. "
         "For broad requests to create a researched campaign, prefer `campaign.create_from_research` over "
         "`campaign.create` so the campaign is tied to the known target site and target URLs. "
@@ -305,37 +311,68 @@ async def _plan_action_with_llm(message: str, db: Session) -> tuple[str, dict[st
         f"Registered actions:\n{json.dumps(action_catalog, indent=2)}\n\n"
         f"User command:\n{message}"
     )
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": settings.agent_model,
-                "max_tokens": 600,
-                "messages": [{"role": "user", "content": prompt}],
-            },
+
+
+async def _run_claude_cli(prompt: str) -> str:
+    cli_path = settings.agent_claude_cli_path
+    if not cli_path:
+        raise ActionExecutionError("Agent Claude CLI is not configured. Set AGENT_CLAUDE_CLI_PATH.")
+
+    env = {
+        "HOME": os.environ.get("HOME", "/home/slither"),
+        "PATH": os.environ.get("PATH", "/home/slither/.local/bin:/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
+    }
+    proc = await asyncio.create_subprocess_exec(
+        cli_path,
+        "-p",
+        "--model",
+        settings.agent_model,
+        "--permission-mode",
+        "dontAsk",
+        "--tools",
+        "",
+        "--safe-mode",
+        "--no-session-persistence",
+        "--output-format",
+        "text",
+        cwd=settings.agent_claude_cli_cwd or None,
+        env=env,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=prompt.encode("utf-8")),
+            timeout=settings.agent_claude_cli_timeout_seconds,
         )
-    if resp.status_code >= 400:
-        raise ActionExecutionError(f"Agent planner failed: HTTP {resp.status_code}")
-    payload = resp.json()
-    text = "".join(
-        part.get("text", "")
-        for part in payload.get("content", [])
-        if part.get("type") == "text"
-    ).strip()
+    except asyncio.TimeoutError as exc:
+        proc.kill()
+        await proc.communicate()
+        raise ActionExecutionError("Agent planner timed out") from exc
+
+    if proc.returncode != 0:
+        err = stderr.decode("utf-8", errors="replace").strip()
+        raise ActionExecutionError(f"Agent planner failed via Claude CLI: {err or f'exit {proc.returncode}'}")
+    return stdout.decode("utf-8", errors="replace").strip()
+
+
+async def _plan_action_with_llm(message: str, db: Session) -> AgentPlan:
+    text = await _run_claude_cli(_build_planner_prompt(message, db))
     parsed = _parse_planner_json(text)
     action_name = parsed.get("action_name")
     action_args = parsed.get("action_args") or {}
-    if not action_name:
-        raise ActionExecutionError("That request is not supported by the registered BackVora actions.")
     if not isinstance(action_args, dict):
         raise ActionExecutionError("Agent planner returned invalid action_args")
+    response = parsed.get("response")
+    if response is not None and not isinstance(response, str):
+        raise ActionExecutionError("Agent planner returned invalid response")
+    if not action_name:
+        return AgentPlan(None, {}, response or "I can help with BackVora operations, but I need a clearer operational request.")
     action_args = _enrich_planned_action_args(db, message, action_name, action_args)
-    return action_name, action_args
+    return AgentPlan(str(action_name), action_args, response)
 
 
 def _persist_action_attempt(
@@ -457,13 +494,28 @@ async def send_agent_command(
 
     if not action_name:
         try:
-            action_name, action_args = await _plan_action_with_llm(req.message, db)
+            plan = await _plan_action_with_llm(req.message, db)
         except ActionExecutionError as exc:
             content = (
                 f"{exc} Try deterministic commands like `search domains porn`, "
                 "`show domain example.com`, `classify domain example.com`, or use an explicit action."
             )
             assistant = AgentMessage(session_id=session.id, user_id=user.id, role="assistant", content=content)
+            db.add(assistant)
+            db.commit()
+            return {"session_id": session.id, "message": _message_payload(assistant), "action": None}
+        if isinstance(plan, tuple) and not isinstance(plan, AgentPlan):
+            action_name, action_args = plan
+            response = None
+        else:
+            action_name, action_args, response = plan
+        if not action_name:
+            assistant = AgentMessage(
+                session_id=session.id,
+                user_id=user.id,
+                role="assistant",
+                content=response or "I can help with BackVora operations, but I need a clearer request.",
+            )
             db.add(assistant)
             db.commit()
             return {"session_id": session.id, "message": _message_payload(assistant), "action": None}
