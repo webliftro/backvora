@@ -4,17 +4,19 @@ Campaigns API router - Campaign management for link building.
 
 from typing import Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 from ..database import get_db
 from ..models import (
     Campaign, CampaignTarget, PublisherRules, Order, OrderLink, LinkCheck,
-    Domain, Contact, LinkPrice, DomainPaymentMethod,
+    Domain, Contact, LinkPrice, DomainPaymentMethod, CampaignDomainExclusion,
     TargetSite, TargetURL, AnchorText
 )
+from ..services.domain_type_classifier import classify_domain_type
 
 
 router = APIRouter()
@@ -377,6 +379,12 @@ class CampaignUpdate(BaseModel):
     @classmethod
     def normalize_status_and_mode(cls, value: Any) -> Any:
         return _normalize_text_literal(value)
+
+
+class CampaignDomainExclusionCreate(BaseModel):
+    domain_id: str
+    reason: Optional[str] = Field(default=None, max_length=500)
+
 
 @router.put("/{campaign_id}")
 async def update_campaign(campaign_id: str, data: CampaignUpdate, db: Session = Depends(get_db)):
@@ -1320,12 +1328,17 @@ async def get_ready_domains(
     # Domains already ordered in this campaign
     ordered_domain_ids = db.query(Order.domain_id).filter(
         Order.campaign_id == campaign_id
-    ).distinct().subquery()
+    ).distinct()
+
+    excluded_domain_ids = db.query(CampaignDomainExclusion.domain_id).filter(
+        CampaignDomainExclusion.campaign_id == campaign_id,
+        CampaignDomainExclusion.deleted_at.is_(None),
+    ).distinct()
     
     # Domains with contacts (table or domain-level email)
     domains_with_contacts = db.query(Contact.domain_id).filter(
         Contact.deleted_at.is_(None)
-    ).distinct().subquery()
+    ).distinct()
     
     # Domains with prices (optionally filtered by link_type and price range)
     price_filters = [LinkPrice.deleted_at.is_(None)]
@@ -1338,12 +1351,12 @@ async def get_ready_domains(
     
     domains_with_prices = db.query(LinkPrice.domain_id).filter(
         *price_filters
-    ).distinct().subquery()
+    ).distinct()
     
     # Domains with payment methods
     domains_with_payment = db.query(DomainPaymentMethod.domain_id).filter(
         DomainPaymentMethod.deleted_at.is_(None)
-    ).distinct().subquery()
+    ).distinct()
     
     # Main query: contact + prices required, payment optional
     query = db.query(Domain).filter(
@@ -1354,6 +1367,7 @@ async def get_ready_domains(
         ),
         Domain.id.in_(domains_with_prices),
         Domain.id.notin_(ordered_domain_ids),
+        Domain.id.notin_(excluded_domain_ids),
     )
     
     if has_payment is True:
@@ -1401,6 +1415,10 @@ async def get_ready_domains(
             "domain": d.domain,
             "domain_rating": d.domain_rating,
             "organic_traffic": d.organic_traffic,
+            "category": d.category,
+            "tags": d.tags,
+            "domain_niche": d.domain_niche,
+            "type_tags": classify_domain_type(d)["type_tags"],
             "contact_name": d.owner,
             "contact_email": contact.email if contact else (d.email or None),
             "contact_id": contact.id if contact else None,
@@ -1412,6 +1430,81 @@ async def get_ready_domains(
         })
     
     return {"items": items, "total": len(items)}
+
+
+@router.post("/{campaign_id}/ready-domain-exclusions")
+async def hide_ready_domain(
+    campaign_id: str,
+    data: CampaignDomainExclusionCreate,
+    db: Session = Depends(get_db),
+):
+    """Hide one domain from this campaign's ready-domain list."""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.deleted_at.is_(None),
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    domain = db.query(Domain).filter(
+        Domain.id == data.domain_id,
+        Domain.deleted_at.is_(None),
+    ).first()
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    existing = db.query(CampaignDomainExclusion).filter(
+        CampaignDomainExclusion.campaign_id == campaign_id,
+        CampaignDomainExclusion.domain_id == data.domain_id,
+    ).first()
+    if existing:
+        existing.deleted_at = None
+        existing.reason = data.reason
+        exclusion = existing
+    else:
+        exclusion = CampaignDomainExclusion(
+            campaign_id=campaign_id,
+            domain_id=data.domain_id,
+            reason=data.reason,
+        )
+        db.add(exclusion)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        exclusion = db.query(CampaignDomainExclusion).filter(
+            CampaignDomainExclusion.campaign_id == campaign_id,
+            CampaignDomainExclusion.domain_id == data.domain_id,
+            CampaignDomainExclusion.deleted_at.is_(None),
+        ).first()
+        if not exclusion:
+            raise
+    return {"success": True, "id": exclusion.id, "domain_id": data.domain_id}
+
+
+@router.delete("/{campaign_id}/ready-domain-exclusions/{domain_id}")
+async def unhide_ready_domain(
+    campaign_id: str,
+    domain_id: str,
+    db: Session = Depends(get_db),
+):
+    """Restore one domain to this campaign's ready-domain list."""
+    from datetime import datetime
+
+    exclusions = db.query(CampaignDomainExclusion).filter(
+        CampaignDomainExclusion.campaign_id == campaign_id,
+        CampaignDomainExclusion.domain_id == domain_id,
+        CampaignDomainExclusion.deleted_at.is_(None),
+    ).all()
+    if not exclusions:
+        raise HTTPException(status_code=404, detail="Campaign/domain exclusion not found")
+
+    now = datetime.utcnow()
+    for exclusion in exclusions:
+        exclusion.deleted_at = now
+    db.commit()
+    return {"success": True, "domain_id": domain_id}
 
 
 @router.get("/scheduler/status")

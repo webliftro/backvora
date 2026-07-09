@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Settings,
   ArrowLeft, Plus, Trash2, Edit2, ExternalLink, Package, Target as TargetIcon,
   BarChart3, Briefcase, Check, X as XIcon, DollarSign, Zap, Clock, Shield,
-  Play, Pause, ChevronDown, ChevronUp, CheckCircle, AlertCircle,
+  Play, Pause, ChevronDown, ChevronUp, CheckCircle, AlertCircle, EyeOff,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../api';
@@ -37,6 +37,7 @@ export default function CampaignDetailPage() {
   const [readyFilters, setReadyFilters] = useState({ link_type: '', min_price: '', max_price: '', min_traffic: '', max_traffic: '', min_dr: '', max_dr: '', has_payment: '' });
   const [selectedReady, setSelectedReady] = useState<Record<string, { domain_id: string; link_type: string; price: number | null; contact_id: string | null }>>({});
   const [bulkAdding, setBulkAdding] = useState(false);
+  const [hidingReadyDomainId, setHidingReadyDomainId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [addLinkModal, setAddLinkModal] = useState<any>(null);
   const [linkForm, setLinkForm] = useState({ target_url: '', anchor_text: '', anchor_text_id: '', anchor_type: '', article_topic: '' });
@@ -212,6 +213,26 @@ export default function CampaignDetailPage() {
       setReadyDomains(data.items);
     } catch (e: any) {
       console.error('Failed to load ready domains:', e);
+    }
+  }
+
+  async function hideReadyDomain(domainId: string) {
+    setHidingReadyDomainId(domainId);
+    try {
+      await api.hideReadyDomain(id!, domainId, 'hidden from campaign ready list');
+      setReadyDomains(prev => prev.filter(d => d.id !== domainId));
+      setSelectedReady(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(key => {
+          if (key.startsWith(`${domainId}:`)) delete next[key];
+        });
+        return next;
+      });
+      toast('Hidden from this campaign');
+    } catch (e: any) {
+      toast(e.message, 'error');
+    } finally {
+      setHidingReadyDomainId(null);
     }
   }
 
@@ -944,6 +965,12 @@ export default function CampaignDetailPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3">
                         <Link to={`/domains/${d.id}`} className="text-pink-400 hover:underline font-medium">{d.domain}</Link>
+                        {d.domain_niche === 'adult' && (
+                          <span className="px-1.5 py-0.5 bg-pink-900/40 text-pink-300 rounded text-xs">adult</span>
+                        )}
+                        {(d.type_tags || []).map((tag: string) => (
+                          <span key={tag} className="px-1.5 py-0.5 bg-gray-700 text-gray-300 rounded text-xs">{tag}</span>
+                        ))}
                         {d.payment_methods?.length > 0 && (
                           <span className="px-1.5 py-0.5 bg-green-900/50 text-green-400 rounded text-xs">{d.payment_methods.join(', ')}</span>
                         )}
@@ -976,6 +1003,16 @@ export default function CampaignDetailPage() {
                         })}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      disabled={hidingReadyDomainId === d.id}
+                      onClick={() => hideReadyDomain(d.id)}
+                      title="Hide this domain from this campaign's ready list only"
+                      className="ml-3 inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      <EyeOff className="w-3.5 h-3.5" />
+                      {hidingReadyDomainId === d.id ? 'Hiding...' : 'Hide'}
+                    </button>
                   </div>
                 </div>
               ))}

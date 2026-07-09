@@ -2,8 +2,16 @@
 
 import pytest
 
-from backend.models import Campaign
-from backend.routers.campaigns import CampaignCreate, CampaignUpdate, create_campaign, update_campaign
+from backend.models import Campaign, Contact, Domain, LinkPrice
+from backend.routers.campaigns import (
+    CampaignCreate,
+    CampaignDomainExclusionCreate,
+    CampaignUpdate,
+    create_campaign,
+    get_ready_domains,
+    hide_ready_domain,
+    update_campaign,
+)
 
 
 @pytest.mark.asyncio
@@ -55,3 +63,39 @@ async def test_campaign_update_accepts_blank_optional_numeric_fields(db):
     assert campaign.filter_traffic_min is None
     assert campaign.filter_dr_min is None
     assert campaign.budget_total is None
+
+
+@pytest.mark.asyncio
+async def test_ready_domain_exclusion_is_campaign_scoped(db):
+    campaign = Campaign(id="camp-1", name="Campaign", target_site="camhours.com")
+    other_campaign = Campaign(id="camp-2", name="Other", target_site="camhours.com")
+    domain = Domain(
+        id="dom-1",
+        domain="adulttoplist.example",
+        domain_niche="adult",
+        category="adult toplist",
+        email="owner@example.com",
+    )
+    db.add_all([
+        campaign,
+        other_campaign,
+        domain,
+        Contact(id="contact-1", domain_id=domain.id, email="owner@example.com", is_primary=True),
+        LinkPrice(id="price-1", domain_id=domain.id, link_type="Guest Post", price=100),
+    ])
+    db.commit()
+
+    before = await get_ready_domains(campaign.id, db=db)
+    assert [item["id"] for item in before["items"]] == [domain.id]
+    assert "topsite" in before["items"][0]["type_tags"]
+
+    await hide_ready_domain(
+        campaign.id,
+        CampaignDomainExclusionCreate(domain_id=domain.id, reason="not relevant"),
+        db=db,
+    )
+
+    after = await get_ready_domains(campaign.id, db=db)
+    other = await get_ready_domains(other_campaign.id, db=db)
+    assert after["items"] == []
+    assert [item["id"] for item in other["items"]] == [domain.id]

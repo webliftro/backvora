@@ -15,6 +15,7 @@ from ..schemas.domain import (
     BulkDeleteRequest, BulkUpdateRequest,
 )
 from ..services import adult_classifier
+from ..services.domain_type_classifier import apply_domain_type_labels
 from ..services.ahrefs import AhrefsService
 from ..utils.domains import normalize_domain
 
@@ -1266,6 +1267,10 @@ class ClassifyAdultRequest(BaseModel):
     force_refresh: bool = False  # re-run classifier on cached verdicts (overrides still win)
 
 
+class ClassifyTypeRequest(BaseModel):
+    domain_ids: list[str]
+
+
 @router.post("/classify-adult")
 async def classify_adult_domains(body: ClassifyAdultRequest, db: Session = Depends(get_db)):
     """Classify selected domains via the shared adult classifier.
@@ -1340,6 +1345,41 @@ async def classify_adult_domains(body: ClassifyAdultRequest, db: Session = Depen
         "adult": adult_count,
         "non_adult": non_adult_count,
         "unclear": unclear_count,
+        "results": results,
+    }
+
+
+@router.post("/classify-type")
+async def classify_domain_types(body: ClassifyTypeRequest, db: Session = Depends(get_db)):
+    """Infer and persist source-type tags such as topsite, tube, or blog."""
+    if not body.domain_ids:
+        return {"scanned": 0, "updated": 0, "unmatched": 0, "results": []}
+
+    targets = db.query(Domain).filter(
+        Domain.id.in_(body.domain_ids),
+        Domain.deleted_at.is_(None),
+    ).all()
+
+    results = []
+    updated = 0
+    unmatched = 0
+    for domain in targets:
+        result = apply_domain_type_labels(domain)
+        if result["changed"]:
+            updated += 1
+        if not result["type_tags"]:
+            unmatched += 1
+        results.append({
+            "domain": domain.domain,
+            "type_tags": result["type_tags"],
+            "changed": result["changed"],
+        })
+
+    db.commit()
+    return {
+        "scanned": len(targets),
+        "updated": updated,
+        "unmatched": unmatched,
         "results": results,
     }
 

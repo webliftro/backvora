@@ -84,6 +84,7 @@ export const api = {
   bulkGrabContacts: (domainIds?: string[]) => req<any>(`${B}/contacts/grab-bulk`, J({ domain_ids: domainIds || null })),
   selectedGrabContacts: (ids: string[]) => req<{ scanned: number; found: number; results: { domain: string; email: string | null }[] }>(`${B}/domains/selected-grab-contacts`, J({ domain_ids: ids })),
   classifyAdult: (ids: string[], forceRefresh = false) => req<{ scanned: number; adult: number; non_adult: number; unclear: number; results: any[] }>(`${B}/domains/classify-adult`, J({ domain_ids: ids, force_refresh: forceRefresh })),
+  classifyDomainTypes: (ids: string[]) => req<{ scanned: number; updated: number; unmatched: number; results: any[] }>(`${B}/domains/classify-type`, J({ domain_ids: ids })),
   setAdultOverride: (id: string, verdict: 'adult' | 'non_adult', note?: string) => req<{ success: boolean; root_domain: string; verdict: string; note: string | null; domains_updated: number }>(`${B}/domains/${id}/adult-override`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verdict, note }) }),
   clearAdultOverride: (id: string) => req<{ success: boolean; domains_reset: number }>(`${B}/domains/${id}/adult-override`, { method: 'DELETE' }),
   // Operational Agent
@@ -143,6 +144,8 @@ export const api = {
     const qs = params.toString();
     return req<{ items: any[]; total: number }>(`${B}/campaigns/${campaignId}/ready-domains${qs ? '?' + qs : ''}`);
   },
+  hideReadyDomain: (campaignId: string, domainId: string, reason?: string) => req<{ success: boolean; id: string; domain_id: string }>(`${B}/campaigns/${campaignId}/ready-domain-exclusions`, J({ domain_id: domainId, reason: reason || null })),
+  unhideReadyDomain: (campaignId: string, domainId: string) => req<{ success: boolean; domain_id: string }>(`${B}/campaigns/${campaignId}/ready-domain-exclusions/${domainId}`, { method: 'DELETE' }),
   // Target Sites
   getTargetSites: () => req<{ items: any[] }>(`${B}/target-sites`),
   createTargetSite: (d: Record<string, any>) => req<any>(`${B}/target-sites`, J(d)),

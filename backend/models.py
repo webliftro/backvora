@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     Column, String, Integer, Float, Text, DateTime, 
-    ForeignKey, Boolean, Enum as SQLEnum, JSON
+    ForeignKey, Boolean, Enum as SQLEnum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -507,6 +507,22 @@ class CampaignTarget(TimestampMixin, Base):
     priority = Column(Integer, default=1)  # higher = more links to this URL
     
     campaign = relationship("Campaign", back_populates="targets")
+
+
+class CampaignDomainExclusion(TimestampMixin, Base):
+    """A domain hidden from one campaign's ready-domain list."""
+    __tablename__ = "campaign_domain_exclusions"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "domain_id", name="uq_campaign_domain_exclusion"),
+    )
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=False, index=True)
+    domain_id = Column(String(36), ForeignKey("domains.id"), nullable=False, index=True)
+    reason = Column(String(500), nullable=True)
+
+    campaign = relationship("Campaign")
+    domain = relationship("Domain")
 
 
 class PublisherRules(TimestampMixin, Base):

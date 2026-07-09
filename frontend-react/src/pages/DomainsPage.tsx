@@ -515,6 +515,27 @@ export default function DomainsPage() {
           >
             Check Adult
           </button>
+          <button
+            disabled={bulkGrabbing}
+            onClick={async (e) => {
+              const btn = e.currentTarget;
+              const origText = btn.innerText;
+              btn.disabled = true;
+              btn.innerText = 'Labeling...';
+              setBulkActionResult(null);
+              try {
+                const r = await api.classifyDomainTypes(selIds);
+                const msg = `Updated ${r.updated} domain type labels, ${r.unmatched} unmatched (${r.scanned} checked)`;
+                toast(msg);
+                setBulkActionResult({ ok: true, message: msg });
+                loadDomains();
+              } catch (err: any) { toast(err.message, 'error'); setBulkActionResult({ ok: false, message: err.message }); }
+              finally { btn.disabled = false; btn.innerText = origText; }
+            }}
+            className="inline-flex items-center justify-center px-3 py-1 text-sm rounded-md bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          >
+            Label Type
+          </button>
           <Button onClick={() => { setRowSelection({}); setBulkActionResult(null); }} size="sm" className="ml-auto">Clear</Button>
         </div>
       )}
