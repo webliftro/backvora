@@ -9,11 +9,31 @@ function authHeaders(): Record<string, string> {
 
 const J = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
 
+function formatApiDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(item => {
+      if (!item || typeof item !== 'object') return String(item);
+      const record = item as Record<string, unknown>;
+      const loc = Array.isArray(record.loc) ? record.loc.join('.') : '';
+      const msg = typeof record.msg === 'string' ? record.msg : JSON.stringify(record);
+      return loc ? `${loc}: ${msg}` : msg;
+    }).join('; ');
+  }
+  if (detail && typeof detail === 'object') {
+    const record = detail as Record<string, unknown>;
+    if (typeof record.message === 'string') return record.message;
+    if (typeof record.error === 'string') return record.error;
+    return JSON.stringify(record);
+  }
+  return '';
+}
+
 async function req<T>(url: string, o?: RequestInit): Promise<T> {
   const headers = { ...authHeaders(), ...(o?.headers || {}) };
   const r = await fetch(url, { ...o, headers });
   if (r.status === 401) { localStorage.removeItem('token'); localStorage.removeItem('refresh_token'); window.location.href = '/login'; throw new Error('Unauthorized'); }
-  if (!r.ok) { const e = await r.json().catch(() => ({ detail: r.statusText })); throw new Error(e.detail || `${r.status}`); }
+  if (!r.ok) { const e = await r.json().catch(() => ({ detail: r.statusText })); throw new Error(formatApiDetail(e.detail) || `${r.status}`); }
   if (r.status === 204) return undefined as T;
   return r.json();
 }

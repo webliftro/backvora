@@ -303,6 +303,64 @@ async def test_campaign_update_action_persists_adult_directory_filters(db):
 
 
 @pytest.mark.asyncio
+async def test_campaign_update_action_normalizes_status_values(db):
+    user = make_user(db)
+    campaign = Campaign(
+        id="16056a2a-bc31-4f07-b8a0-8e08d5fe060e",
+        name="Existing CamHours Campaign",
+        target_site="camhours.com",
+        status="active",
+    )
+    db.add(campaign)
+    db.commit()
+
+    _action, result = await execute_registered_action(db, user, "campaign.update", {
+        "campaign_id": campaign.id,
+        "status": "Paused",
+    })
+
+    db.refresh(campaign)
+    assert campaign.status == "paused"
+    assert result.data["campaign"]["status"] == "paused"
+
+
+@pytest.mark.asyncio
+async def test_campaign_create_action_normalizes_status_values(db):
+    user = make_user(db)
+
+    _action, result = await execute_registered_action(db, user, "campaign.create", {
+        "name": "Paused Campaign",
+        "target_site": "camhours.com",
+        "status": "Paused",
+    })
+
+    campaign = db.query(Campaign).filter(Campaign.id == result.data["campaign"]["id"]).one()
+    assert campaign.status == "paused"
+
+
+@pytest.mark.asyncio
+async def test_campaign_update_action_invalid_status_is_readable(db):
+    user = make_user(db)
+    campaign = Campaign(
+        id="16056a2a-bc31-4f07-b8a0-8e08d5fe060e",
+        name="Existing CamHours Campaign",
+        target_site="camhours.com",
+        status="active",
+    )
+    db.add(campaign)
+    db.commit()
+
+    result = await execute_action(AgentActionRequest(
+        action_name="campaign.update",
+        action_args={"campaign_id": campaign.id, "status": "sleeping"},
+    ), db=db, user=user)
+
+    assert result["action"]["status"] == "failed"
+    assert "status" in result["action"]["error"]
+    assert "[object Object]" not in result["action"]["error"]
+
+
+@pytest.mark.asyncio
 async def test_planner_can_update_existing_campaign_filters(db, monkeypatch):
     user = make_user(db)
     campaign = Campaign(

@@ -8,7 +8,7 @@ import re
 from typing import Any, Awaitable, Callable, Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,12 @@ FORBIDDEN_ACTION_TOKENS = (
 
 class ActionExecutionError(Exception):
     """Raised when a registered action cannot complete."""
+
+
+def _normalize_literal(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
 
 
 class DomainSearchArgs(BaseModel):
@@ -107,7 +113,7 @@ class CampaignCreateArgs(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     target_site: str | None = Field(None, max_length=255)
     target_site_id: str | None = None
-    status: str = Field("active", max_length=50)
+    status: Literal["active", "paused", "completed"] = "active"
     budget: float | None = Field(None, ge=0)
     notes: str | None = None
     mode: Literal["manual", "auto"] = "manual"
@@ -124,6 +130,11 @@ class CampaignCreateArgs(BaseModel):
     budget_total: float | None = Field(None, ge=0)
     schedule_enabled: bool | None = None
     schedule_interval_hours: int | None = Field(None, ge=1)
+
+    @field_validator("status", "mode", mode="before")
+    @classmethod
+    def normalize_status_and_mode(cls, value: Any) -> Any:
+        return _normalize_literal(value)
 
 
 class CampaignUpdateArgs(BaseModel):
@@ -149,11 +160,16 @@ class CampaignUpdateArgs(BaseModel):
     schedule_enabled: bool | None = None
     schedule_interval_hours: int | None = Field(None, ge=1)
 
+    @field_validator("status", "mode", mode="before")
+    @classmethod
+    def normalize_status_and_mode(cls, value: Any) -> Any:
+        return _normalize_literal(value)
+
 
 class CampaignCreateFromResearchArgs(BaseModel):
     target_site_query: str = Field(..., min_length=1, max_length=255)
     name: str | None = Field(None, max_length=255)
-    status: str = Field("active", max_length=50)
+    status: Literal["active", "paused", "completed"] = "active"
     budget: float | None = Field(None, ge=0)
     notes: str | None = None
     mode: Literal["manual", "auto"] = "manual"
@@ -169,6 +185,11 @@ class CampaignCreateFromResearchArgs(BaseModel):
     velocity_period_days: int | None = Field(None, ge=1)
     budget_total: float | None = Field(None, ge=0)
     limit_target_urls: int = Field(5, ge=1, le=20)
+
+    @field_validator("status", "mode", mode="before")
+    @classmethod
+    def normalize_status_and_mode(cls, value: Any) -> Any:
+        return _normalize_literal(value)
 
 
 class CampaignTargetCreateArgs(BaseModel):
