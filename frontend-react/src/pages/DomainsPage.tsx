@@ -265,8 +265,27 @@ export default function DomainsPage() {
     onSortingChange: setSorting, onRowSelectionChange: setRowSelection, onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: true, enableColumnResizing: true, columnResizeMode: 'onChange',
+    autoResetPageIndex: false,
     initialState: { pagination: { pageSize: 50 } },
   });
+
+  useEffect(() => {
+    table.setPageIndex(0);
+  }, [
+    search,
+    statusFilter,
+    categoryFilter,
+    targetFilters,
+    adultFilter,
+    hasBacklink,
+    competitorOnly,
+    minTraffic,
+    maxTraffic,
+    minDR,
+    maxDR,
+    hasContacts,
+    linkTypeFilter,
+  ]);
 
   const selIds = Object.keys(rowSelection).filter(k => (rowSelection as Record<string, boolean>)[k]).map(k => filtered[+k]?.id).filter(Boolean);
 

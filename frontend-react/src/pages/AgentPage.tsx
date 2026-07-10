@@ -67,6 +67,7 @@ export default function AgentPage() {
   const [selectedAction, setSelectedAction] = useState('')
   const [actionArgs, setActionArgs] = useState('{}')
   const [loading, setLoading] = useState(false)
+  const [commandPending, setCommandPending] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function AgentPage() {
     () => actions.find(action => action.name === selectedAction),
     [actions, selectedAction],
   )
+  const interactionLocked = loading || commandPending
 
   function mergeAudit(action: Record<string, unknown> | null) {
     if (!action || typeof action.id !== 'string') return
@@ -145,19 +147,28 @@ export default function AgentPage() {
     e.preventDefault()
     const text = command.trim()
     if (!text) return
-    setLoading(true)
+    const userMessage: AgentMessage = {
+      id: `local-${Date.now()}`,
+      role: 'user',
+      content: text,
+      meta: {},
+    }
+    setCommandPending(true)
     setError('')
+    setCommand('')
+    setMessages(prev => [...prev, userMessage])
     try {
       const res = await api.sendAgentCommand({ message: text, session_id: sessionId })
       setSessionId(res.session_id)
-      setMessages(prev => [...prev, { id: `local-${Date.now()}`, role: 'user', content: text, meta: {} }, res.message])
+      setMessages(prev => [...prev, res.message])
       mergeAudit(res.action)
       await refreshSessions(res.session_id)
-      setCommand('')
     } catch (e) {
+      setMessages(prev => prev.filter(message => message.id !== userMessage.id))
+      setCommand(text)
       setError(e instanceof Error ? e.message : 'Agent command failed')
     } finally {
-      setLoading(false)
+      setCommandPending(false)
     }
   }
 
@@ -220,7 +231,7 @@ export default function AgentPage() {
         description="Run BackVora actions through an audited, whitelisted agent surface"
         actions={(
           <div className="flex items-center gap-2">
-            <Button type="button" onClick={startNewSession} icon={MessageSquarePlus}>New</Button>
+            <Button type="button" onClick={startNewSession} disabled={interactionLocked} icon={MessageSquarePlus}>New</Button>
             <StatusPill tone="success"><ShieldCheck className="w-3 h-3" /> Audited actions only</StatusPill>
           </div>
         )}
@@ -237,22 +248,33 @@ export default function AgentPage() {
                 title="No agent messages yet"
                 hint="Try: search domains porn, show domain example.com, classify domain example.com, summarize campaign CamHours."
               />
-            ) : messages.map(message => (
-              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[82%] rounded-lg px-3 py-2 text-sm ${
-                  message.role === 'user'
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-gray-900 border border-gray-700 text-gray-200'
-                }`}>
-                  <div className="whitespace-pre-wrap break-words">{message.content}</div>
-                  {hasResult(message.meta) && (
-                    <pre className="mt-2 max-h-72 overflow-auto rounded-md bg-black/30 p-2 text-xs text-gray-300">
-                      {JSON.stringify(message.meta.result, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              </div>
-            ))}
+            ) : (
+              <>
+                {messages.map(message => (
+                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[82%] rounded-lg px-3 py-2 text-sm ${
+                      message.role === 'user'
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-gray-900 border border-gray-700 text-gray-200'
+                    }`}>
+                      <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                      {hasResult(message.meta) && (
+                        <pre className="mt-2 max-h-72 overflow-auto rounded-md bg-black/30 p-2 text-xs text-gray-300">
+                          {JSON.stringify(message.meta.result, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {commandPending && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[82%] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-400">
+                      Thinking...
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <form onSubmit={submitCommand} className="border-t border-gray-700 p-3 flex gap-2">
@@ -260,9 +282,10 @@ export default function AgentPage() {
               value={command}
               onChange={e => setCommand(e.target.value)}
               placeholder="Tell the agent what to do..."
+              disabled={commandPending}
               className="flex-1 min-w-0 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500"
             />
-            <Button type="submit" variant="primary" disabled={loading || !command.trim()} icon={Send}>
+            <Button type="submit" variant="primary" disabled={commandPending || !command.trim()} icon={Send}>
               Send
             </Button>
           </form>
@@ -272,7 +295,7 @@ export default function AgentPage() {
           <Card className="p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h2 className="text-sm font-semibold">Conversations</h2>
-              <Button type="button" size="sm" onClick={startNewSession} icon={MessageSquarePlus}>New</Button>
+              <Button type="button" size="sm" onClick={startNewSession} disabled={interactionLocked} icon={MessageSquarePlus}>New</Button>
             </div>
             {sessions.length === 0 ? (
               <div className="text-xs text-gray-500">No saved conversations yet.</div>
@@ -290,7 +313,7 @@ export default function AgentPage() {
                     <button
                       type="button"
                       onClick={() => loadSession(session.id)}
-                      disabled={loading && sessionId === session.id}
+                      disabled={interactionLocked}
                       className="min-w-0 flex-1 text-left"
                     >
                       <div className="truncate text-xs font-medium text-gray-200">
@@ -305,7 +328,7 @@ export default function AgentPage() {
                     <button
                       type="button"
                       onClick={() => deleteSession(session.id)}
-                      disabled={loading}
+                      disabled={interactionLocked}
                       className="rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-red-300 disabled:opacity-50"
                       title="Delete conversation"
                       aria-label={`Delete ${session.title || 'Untitled conversation'}`}
@@ -341,7 +364,7 @@ export default function AgentPage() {
                 spellCheck={false}
                 className="w-full font-mono bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-pink-500"
               />
-              <Button type="submit" variant="primary" disabled={loading || !selectedAction} icon={Play}>
+              <Button type="submit" variant="primary" disabled={interactionLocked || !selectedAction} icon={Play}>
                 Run
               </Button>
             </form>
@@ -364,8 +387,8 @@ export default function AgentPage() {
                     {audit.error && <div className="mt-1 text-xs text-red-300">{audit.error}</div>}
                     {audit.status === 'pending' && (
                       <div className="mt-2 flex gap-2">
-                        <Button size="sm" variant="primary" disabled={loading} onClick={() => confirmAudit(audit.id)}>Confirm</Button>
-                        <Button size="sm" disabled={loading} onClick={() => cancelAudit(audit.id)}>Cancel</Button>
+                        <Button size="sm" variant="primary" disabled={interactionLocked} onClick={() => confirmAudit(audit.id)}>Confirm</Button>
+                        <Button size="sm" disabled={interactionLocked} onClick={() => cancelAudit(audit.id)}>Cancel</Button>
                       </div>
                     )}
                   </div>
